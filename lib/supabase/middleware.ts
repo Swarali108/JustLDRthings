@@ -5,11 +5,32 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 const PROTECTED_PREFIXES = ["/dashboard", "/create", "/page", "/settings"];
 
+function hasSupabaseConfig() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 /**
  * Refreshes the Supabase auth session on every request and guards private
  * routes. Recipient routes (/for-you/*) and the marketing/auth pages stay open.
  */
 export async function updateSession(request: NextRequest) {
+  if (!hasSupabaseConfig()) {
+    const path = request.nextUrl.pathname;
+    const isProtected = PROTECTED_PREFIXES.some((p) => path.startsWith(p));
+
+    if (isProtected) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.searchParams.set("setup", "missing-supabase-env");
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
