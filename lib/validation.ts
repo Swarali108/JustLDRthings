@@ -16,7 +16,9 @@ export const letterSchema = z.object({
 });
 
 // Allow-list of hosts we render as a "song" link, to avoid arbitrary embeds.
-const SONG_HOSTS = [
+// Exported so the guest-link decoder enforces the identical rule on untrusted
+// payloads — two copies of this list would drift and open a hole.
+export const SONG_HOSTS = [
   "open.spotify.com",
   "spotify.com",
   "music.apple.com",

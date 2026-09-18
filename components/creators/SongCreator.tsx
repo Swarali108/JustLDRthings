@@ -2,13 +2,25 @@
 
 import { useActionState, useState } from "react";
 import { saveSong, type CreateState } from "@/app/create/actions";
+import { songSchema } from "@/lib/validation";
+import { GuestResult } from "@/components/guest/GuestResult";
+import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
+import type { GuestItem, GuestPayload } from "@/lib/guest-share";
 
 const initial: CreateState = {};
 
-export function SongCreator() {
+interface GuestDone {
+  title: string;
+  payload: GuestPayload;
+  blocks: KeepsakeBlock[];
+}
+
+export function SongCreator({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(saveSong, initial);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
+  const [guest, setGuest] = useState<GuestDone | null>(null);
+  const [guestError, setGuestError] = useState("");
 
   let provider = "";
   try {
@@ -17,9 +29,45 @@ export function SongCreator() {
     provider = "";
   }
 
+  function onGuestSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const parsed = songSchema.safeParse({
+      title: form.get("title") ?? "",
+      url: form.get("url") ?? "",
+      note: form.get("note") ?? ""
+    });
+
+    if (!parsed.success) {
+      setGuestError(parsed.error.issues[0].message);
+      return;
+    }
+
+    const title = parsed.data.title || "A song for you";
+    const item: GuestItem = {
+      type: "song",
+      title,
+      payload: {
+        url: parsed.data.url,
+        note: parsed.data.note,
+        provider: new URL(parsed.data.url).hostname.replace(/^www\./, "")
+      }
+    };
+
+    setGuestError("");
+    setGuest({
+      title,
+      payload: { v: 1, title, items: [item] },
+      blocks: [guestItemToBlock(item)]
+    });
+  }
+
+  const formProps = signedIn ? { action: formAction } : { onSubmit: onGuestSubmit };
+  const error = signedIn ? state.error : guestError;
+
   return (
     <>
-      <form action={formAction} className="studio-panel">
+      <form {...formProps} className="studio-panel">
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input id="title" name="title" placeholder="A song for you" />
@@ -50,29 +98,38 @@ export function SongCreator() {
           />
         </div>
 
-        {state.error ? (
+        {error ? (
           <p className="form-error" role="alert">
-            {state.error}
+            {error}
           </p>
         ) : null}
 
         <div className="row-actions" style={{ marginTop: 16 }}>
           <button type="submit" className="button button-plum" disabled={pending}>
-            {pending ? "Saving…" : "Save this"}
+            {signedIn ? (pending ? "Saving…" : "Save this") : "Finish this ♡"}
           </button>
         </div>
       </form>
 
-      <div className="studio-panel">
-        <p className="eyebrow">Preview</p>
-        <div className="song-preview">
-          <div className="song-art">♫</div>
-          <div className="song-meta">
-            <strong>{provider || "Your song"}</strong>
-            <p>{note || "This song made me think of you."}</p>
+      {guest ? (
+        <GuestResult
+          title={guest.title}
+          payload={guest.payload}
+          blocks={guest.blocks}
+          onEdit={() => setGuest(null)}
+        />
+      ) : (
+        <div className="studio-panel">
+          <p className="eyebrow">Preview</p>
+          <div className="song-preview">
+            <div className="song-art">♫</div>
+            <div className="song-meta">
+              <strong>{provider || "Your song"}</strong>
+              <p>{note || "This song made me think of you."}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

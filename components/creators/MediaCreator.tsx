@@ -9,13 +9,20 @@ import {
   getUserId,
   uploadToUserMedia
 } from "@/components/creators/upload";
+import { GuestResult } from "@/components/guest/GuestResult";
+import {
+  readAsDataUrl,
+  KEEPSAKE_MEDIA_LIMIT,
+  type KeepsakeBlock
+} from "@/components/guest/keepsake";
 
-export function MediaCreator() {
+export function MediaCreator({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [guest, setGuest] = useState<{ title: string; blocks: KeepsakeBlock[] } | null>(null);
 
   function onPick(f: File | null) {
     setError("");
@@ -48,6 +55,27 @@ export function MediaCreator() {
     const form = new FormData(e.currentTarget);
     const title = String(form.get("title") || "");
     const caption = String(form.get("caption") || "");
+
+    // Guest path: a photo cannot travel in a URL, so there is no link to give —
+    // only a keepsake file with the image tucked inside it.
+    if (!signedIn) {
+      setBusy(true);
+      const dataUrl = await readAsDataUrl(file);
+      setBusy(false);
+      setGuest({
+        title: title || "A little moment",
+        blocks: [
+          {
+            kind: "media",
+            title: title || "A little moment",
+            caption,
+            mediaKind: mt,
+            mediaDataUrl: dataUrl ?? undefined
+          }
+        ]
+      });
+      return;
+    }
 
     setBusy(true);
     const uid = await getUserId();
@@ -83,6 +111,7 @@ export function MediaCreator() {
   }
 
   const isVideo = file ? mediaTypeForMime(file.type) === "video" : false;
+  const tooBigToEmbed = Boolean(file && file.size > KEEPSAKE_MEDIA_LIMIT);
 
   return (
     <>
@@ -107,6 +136,16 @@ export function MediaCreator() {
           <input id="caption" name="caption" placeholder="Wish you were here…" />
         </div>
 
+        {!signedIn ? (
+          <p className="form-notice">
+            Photos and videos can&apos;t travel inside a link, so this one saves to
+            your laptop instead.{" "}
+            {tooBigToEmbed
+              ? "This file is also too big to tuck into the keepsake — sign in to share it properly."
+              : "Sign in if you'd rather send a link."}
+          </p>
+        ) : null}
+
         {error ? (
           <p className="form-error" role="alert">
             {error}
@@ -115,26 +154,36 @@ export function MediaCreator() {
 
         <div className="row-actions" style={{ marginTop: 16 }}>
           <button type="submit" className="button button-plum" disabled={busy}>
-            {busy ? "Uploading…" : "Save this"}
+            {signedIn ? (busy ? "Uploading…" : "Save this") : busy ? "Wrapping…" : "Finish this ♡"}
           </button>
         </div>
       </form>
 
-      <div className="studio-panel">
-        <p className="eyebrow">Preview</p>
-        <div className="media-frame">
-          {previewUrl ? (
-            isVideo ? (
-              <video src={previewUrl} controls />
+      {guest ? (
+        <GuestResult
+          title={guest.title}
+          payload={null}
+          blocks={guest.blocks}
+          onEdit={() => setGuest(null)}
+          unshareableReason="Photos and videos are too big for a link. Save it to your laptop below, or sign in to send one."
+        />
+      ) : (
+        <div className="studio-panel">
+          <p className="eyebrow">Preview</p>
+          <div className="media-frame">
+            {previewUrl ? (
+              isVideo ? (
+                <video src={previewUrl} controls />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="Selected media preview" />
+              )
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="Selected media preview" />
-            )
-          ) : (
-            <span className="paper-placeholder">Your photo or video shows here ♡</span>
-          )}
+              <span className="paper-placeholder">Your photo or video shows here ♡</span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

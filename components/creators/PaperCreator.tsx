@@ -2,24 +2,84 @@
 
 import { useActionState, useState } from "react";
 import { saveNote, saveLetter, type CreateState } from "@/app/create/actions";
-import { PAPER_THEMES } from "@/lib/validation";
+import { PAPER_THEMES, noteSchema, letterSchema } from "@/lib/validation";
 import { AiAssist } from "@/components/creators/AiAssist";
+import { GuestResult } from "@/components/guest/GuestResult";
+import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
+import type { GuestItem, GuestPayload } from "@/lib/guest-share";
 
 const initial: CreateState = {};
 
-export function PaperCreator({ kind }: { kind: "note" | "letter" }) {
+interface GuestDone {
+  title: string;
+  payload: GuestPayload;
+  blocks: KeepsakeBlock[];
+}
+
+export function PaperCreator({
+  kind,
+  signedIn
+}: {
+  kind: "note" | "letter";
+  signedIn: boolean;
+}) {
   const action = kind === "note" ? saveNote : saveLetter;
   const [state, formAction, pending] = useActionState(action, initial);
 
   const [body, setBody] = useState("");
   const [paper, setPaper] = useState<(typeof PAPER_THEMES)[number]>("cream");
+  const [guest, setGuest] = useState<GuestDone | null>(null);
+  const [guestError, setGuestError] = useState("");
+
+  /**
+   * Guest path: same schema as the server action, run here instead. Nothing is
+   * sent anywhere — the result becomes a link and a file, both built in-page.
+   */
+  function onGuestSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const schema = kind === "note" ? noteSchema : letterSchema;
+    const parsed = schema.safeParse({
+      title: form.get("title") ?? "",
+      body: form.get("body") ?? "",
+      paper: form.get("paper") ?? "cream"
+    });
+
+    if (!parsed.success) {
+      setGuestError(parsed.error.issues[0].message);
+      return;
+    }
+
+    const title = parsed.data.title || (kind === "note" ? "A little note" : "A letter");
+    const item: GuestItem = {
+      type: kind,
+      title,
+      payload: { body: parsed.data.body, paper: parsed.data.paper }
+    };
+
+    setGuestError("");
+    setGuest({
+      title,
+      payload: { v: 1, title, items: [item] },
+      blocks: [guestItemToBlock(item)]
+    });
+  }
+
+  const formProps = signedIn
+    ? { action: formAction }
+    : { onSubmit: onGuestSubmit, noValidate: false };
+  const error = signedIn ? state.error : guestError;
 
   return (
     <>
-      <form action={formAction} className="studio-panel">
+      <form {...formProps} className="studio-panel">
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
-          <input id="title" name="title" placeholder={kind === "note" ? "A little note" : "A letter"} />
+          <input
+            id="title"
+            name="title"
+            placeholder={kind === "note" ? "A little note" : "A letter"}
+          />
         </div>
 
         <div className="field">
@@ -37,7 +97,7 @@ export function PaperCreator({ kind }: { kind: "note" | "letter" }) {
                 : "For everything too big for a text…"
             }
           />
-          <AiAssist kind={kind} onResult={(text) => setBody(text)} />
+          {signedIn ? <AiAssist kind={kind} onResult={(text) => setBody(text)} /> : null}
         </div>
 
         <div className="field">
@@ -54,25 +114,34 @@ export function PaperCreator({ kind }: { kind: "note" | "letter" }) {
           </select>
         </div>
 
-        {state.error ? (
+        {error ? (
           <p className="form-error" role="alert">
-            {state.error}
+            {error}
           </p>
         ) : null}
 
         <div className="row-actions" style={{ marginTop: 16 }}>
           <button type="submit" className="button button-plum" disabled={pending}>
-            {pending ? "Saving…" : "Save this"}
+            {signedIn ? (pending ? "Saving…" : "Save this") : "Finish this ♡"}
           </button>
         </div>
       </form>
 
-      <div className="studio-panel">
-        <p className="eyebrow">Preview</p>
-        <div className={`paper-preview paper-${paper}`}>
-          {body ? body : <span className="paper-placeholder">Your words appear here ♡</span>}
+      {guest ? (
+        <GuestResult
+          title={guest.title}
+          payload={guest.payload}
+          blocks={guest.blocks}
+          onEdit={() => setGuest(null)}
+        />
+      ) : (
+        <div className="studio-panel">
+          <p className="eyebrow">Preview</p>
+          <div className={`paper-preview paper-${paper}`}>
+            {body ? body : <span className="paper-placeholder">Your words appear here ♡</span>}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

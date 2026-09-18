@@ -1,26 +1,13 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasSupabaseConfig } from "@/lib/supabase/config";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-const PROTECTED_PREFIXES = ["/dashboard", "/create", "/page", "/settings"];
-
-/**
- * A truthy env var is not enough: pasting a Supabase *key* into the URL slot is
- * an easy mistake, and `createServerClient` throws on a non-URL, which would
- * take down every route this proxy matches. Validate the shape, not just presence.
- */
-function hasSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return false;
-
-  try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:";
-  } catch {
-    return false;
-  }
-}
+// "/create" is deliberately absent: the creators work for guests, who keep their
+// work via a link or a download instead of an account. Each creator branches on
+// the signed-in state itself rather than being gated here.
+const PROTECTED_PREFIXES = ["/dashboard", "/page", "/settings"];
 
 function isProtectedPath(path: string) {
   return PROTECTED_PREFIXES.some((p) => path.startsWith(p));

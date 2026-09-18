@@ -4,8 +4,14 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createMediaDraft, attachMedia, discardDraft } from "@/app/create/actions";
 import { LIMITS, getUserId, uploadToUserMedia } from "@/components/creators/upload";
+import { GuestResult } from "@/components/guest/GuestResult";
+import {
+  readAsDataUrl,
+  KEEPSAKE_MEDIA_LIMIT,
+  type KeepsakeBlock
+} from "@/components/guest/keepsake";
 
-export function VoiceCreator() {
+export function VoiceCreator({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const [blob, setBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -13,6 +19,7 @@ export function VoiceCreator() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [filename, setFilename] = useState("voice-note.webm");
+  const [guest, setGuest] = useState<{ title: string; blocks: KeepsakeBlock[] } | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -80,6 +87,27 @@ export function VoiceCreator() {
     const form = new FormData(e.currentTarget);
     const title = String(form.get("title") || "");
     const transcript = String(form.get("transcript") || "");
+
+    // Guest path: audio cannot travel in a URL, so the clip is bundled into a
+    // keepsake file instead of becoming a link.
+    if (!signedIn) {
+      setBusy(true);
+      const dataUrl = await readAsDataUrl(blob);
+      setBusy(false);
+      setGuest({
+        title: title || "A voice note",
+        blocks: [
+          {
+            kind: "voice",
+            title: title || "A voice note",
+            transcript,
+            mediaKind: "audio",
+            mediaDataUrl: dataUrl ?? undefined
+          }
+        ]
+      });
+      return;
+    }
 
     setBusy(true);
     const uid = await getUserId();
@@ -158,6 +186,16 @@ export function VoiceCreator() {
           <textarea id="transcript" name="transcript" placeholder="What you said…" />
         </div>
 
+        {!signedIn ? (
+          <p className="form-notice">
+            Voice notes can&apos;t travel inside a link, so this one saves to your
+            laptop instead.{" "}
+            {blob && blob.size > KEEPSAKE_MEDIA_LIMIT
+              ? "This clip is also too long to tuck into the keepsake — sign in to share it properly."
+              : "Sign in if you'd rather send a link."}
+          </p>
+        ) : null}
+
         {error ? (
           <p className="form-error" role="alert">
             {error}
@@ -166,23 +204,33 @@ export function VoiceCreator() {
 
         <div className="row-actions" style={{ marginTop: 16 }}>
           <button type="submit" className="button button-plum" disabled={busy}>
-            {busy ? "Uploading…" : "Save this"}
+            {signedIn ? (busy ? "Uploading…" : "Save this") : busy ? "Wrapping…" : "Finish this ♡"}
           </button>
         </div>
       </form>
 
-      <div className="studio-panel">
-        <p className="eyebrow">Preview</p>
-        <div className="voice-preview">
-          {previewUrl ? (
-            <audio src={previewUrl} controls />
-          ) : (
-            <span className="paper-placeholder">
-              {recording ? "Recording… ♡" : "Your voice note plays here ♡"}
-            </span>
-          )}
+      {guest ? (
+        <GuestResult
+          title={guest.title}
+          payload={null}
+          blocks={guest.blocks}
+          onEdit={() => setGuest(null)}
+          unshareableReason="Voice notes are too big for a link. Save it to your laptop below, or sign in to send one."
+        />
+      ) : (
+        <div className="studio-panel">
+          <p className="eyebrow">Preview</p>
+          <div className="voice-preview">
+            {previewUrl ? (
+              <audio src={previewUrl} controls />
+            ) : (
+              <span className="paper-placeholder">
+                {recording ? "Recording… ♡" : "Your voice note plays here ♡"}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

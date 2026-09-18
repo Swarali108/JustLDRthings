@@ -36,14 +36,16 @@ export default function LandingPage() {
             distance. One beautiful page, one private link — made just for them.
           </p>
           <div className="hero-actions">
-            <Link href="/signup" className="button button-primary">
+            <Link href="/create/note" className="button button-primary">
               Create something ✿
             </Link>
             <a href="#how" className="button button-ghost">
               See how it works →
             </a>
           </div>
-          <p className="kicker">Little things, big feelings. ♡</p>
+          <p className="kicker">
+            No account needed to make something — keep it as a link or a file. ♡
+          </p>
         </div>
 
         {/* Decorative scrapbook collage */}
@@ -101,16 +103,24 @@ export default function LandingPage() {
         <div className="create-heading">
           <p className="eyebrow">What you can make</p>
           <h2>Little gestures, big feelings</h2>
+          <p className="section-lead">
+            Pick one and start — signing in is optional.
+          </p>
         </div>
         <div className="creation-grid">
           {CREATIONS.map((c) => (
-            <div key={c.type} className="creation-card">
+            <Link
+              key={c.type}
+              href={c.href}
+              className="creation-card"
+              aria-label={`${c.label} — ${c.microcopy}`}
+            >
               <Icon name={c.icon as IconName} size={26} />
               <strong>{c.label}</strong>
               <span className="microcopy" style={{ margin: 0, fontSize: "1rem" }}>
-                {c.microcopy}
+                {c.ready ? c.microcopy : "Coming soon"}
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
