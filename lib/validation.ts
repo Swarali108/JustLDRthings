@@ -1,4 +1,14 @@
 import { z } from "zod";
+import {
+  FLOWER_IDS,
+  MAX_STEMS,
+  GREENERY_IDS,
+  MAX_GREENERY,
+  WRAP_IDS,
+  RIBBON_IDS
+} from "@/lib/flowers";
+import { doodleSchema } from "@/lib/doodle";
+import { styleSchema } from "@/lib/style";
 
 // Paper themes shared by notes and letters.
 export const PAPER_THEMES = ["cream", "blue", "plum"] as const;
@@ -6,13 +16,15 @@ export const PAPER_THEMES = ["cream", "blue", "plum"] as const;
 export const noteSchema = z.object({
   title: z.string().trim().max(80).optional().default(""),
   body: z.string().trim().min(1, "Write a little something.").max(600),
-  paper: z.enum(PAPER_THEMES).default("cream")
+  paper: z.enum(PAPER_THEMES).default("cream"),
+  style: styleSchema.optional()
 });
 
 export const letterSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
   body: z.string().trim().min(1, "Your letter is empty.").max(8000),
-  paper: z.enum(PAPER_THEMES).default("cream")
+  paper: z.enum(PAPER_THEMES).default("cream"),
+  style: styleSchema.optional()
 });
 
 // Allow-list of hosts we render as a "song" link, to avoid arbitrary embeds.
@@ -41,24 +53,52 @@ export const songSchema = z.object({
         return false;
       }
     }, "Use a Spotify, Apple Music, YouTube or SoundCloud link."),
-  note: z.string().trim().max(500).optional().default("")
+  note: z.string().trim().max(500).optional().default(""),
+  style: styleSchema.optional()
 });
 
 export const couponSchema = z.object({
   title: z.string().trim().max(80).optional().default(""),
   coupon_text: z.string().trim().min(1, "What are you promising?").max(200),
   // datetime-local value (no timezone) or empty.
-  expires_at: z.string().trim().optional().default("")
+  expires_at: z.string().trim().optional().default(""),
+  style: styleSchema.optional()
 });
 
 export const mediaMetaSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
-  caption: z.string().trim().max(400).optional().default("")
+  caption: z.string().trim().max(400).optional().default(""),
+  style: styleSchema.optional()
 });
 
 export const voiceMetaSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
-  transcript: z.string().trim().max(1000).optional().default("")
+  transcript: z.string().trim().max(1000).optional().default(""),
+  style: styleSchema.optional()
+});
+
+export const bouquetSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  // Stems are stored as flower ids, in pick order -- the arrangement IS the order.
+  stems: z.array(z.enum(FLOWER_IDS)).min(1, "Pick at least one flower.").max(MAX_STEMS),
+  greenery: z.array(z.enum(GREENERY_IDS)).max(MAX_GREENERY).optional().default([]),
+  wrap: z.enum(WRAP_IDS).optional().default("cream"),
+  ribbon: z.enum(RIBBON_IDS).optional().default("none"),
+  note: z.string().trim().max(400).optional().default(""),
+  style: styleSchema.optional()
+});
+
+export const doodleItemSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  doodle: doodleSchema,
+  note: z.string().trim().max(400).optional().default(""),
+  style: styleSchema.optional()
+});
+
+export const collageMetaSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  caption: z.string().trim().max(400).optional().default(""),
+  style: styleSchema.optional()
 });
 
 export const aiWriteSchema = z.object({
@@ -70,3 +110,4 @@ export type NoteInput = z.infer<typeof noteSchema>;
 export type LetterInput = z.infer<typeof letterSchema>;
 export type SongInput = z.infer<typeof songSchema>;
 export type CouponInput = z.infer<typeof couponSchema>;
+export type BouquetInput = z.infer<typeof bouquetSchema>;

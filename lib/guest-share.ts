@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { SONG_HOSTS } from "@/lib/validation";
+import { styleSchema } from "@/lib/style";
+import {
+  FLOWER_IDS,
+  MAX_STEMS,
+  GREENERY_IDS,
+  MAX_GREENERY,
+  WRAP_IDS,
+  RIBBON_IDS
+} from "@/lib/flowers";
+import { doodleSchema } from "@/lib/doodle";
 import type { RenderItem } from "@/components/scrapbook/ItemBlock";
 
 /**
@@ -11,11 +21,13 @@ import type { RenderItem } from "@/components/scrapbook/ItemBlock";
  * is readable only by someone who already has the link.
  *
  * Cost of that choice: capacity. Only text-shaped creations fit in a URL, which
- * is why GUEST_TYPES excludes media and voice — a photo or an audio clip has to
- * live somewhere a URL cannot reach.
+ * is why GUEST_TYPES excludes media, voice and collage — a photo or an audio
+ * clip has to live somewhere a URL cannot reach. A bouquet is only ids and a
+ * style, and a doodle is integer stroke geometry rather than a bitmap, so both
+ * travel fine.
  */
 
-export const GUEST_TYPES = ["note", "letter", "song", "coupon"] as const;
+export const GUEST_TYPES = ["note", "letter", "song", "coupon", "bouquet", "doodle"] as const;
 export type GuestType = (typeof GUEST_TYPES)[number];
 
 /** Above this the link still works, but chat apps start truncating it. */
@@ -52,7 +64,17 @@ const guestItemSchema = z.object({
         }, "unsupported song host")
         .optional(),
       note: z.string().max(500).optional(),
-      provider: z.string().max(100).optional()
+      provider: z.string().max(100).optional(),
+      // Bouquet: ordered ids from the closed flower/greenery sets, plus the
+      // wrapping and the tie — all looked up, never interpolated raw.
+      stems: z.array(z.enum(FLOWER_IDS)).max(MAX_STEMS).optional(),
+      greenery: z.array(z.enum(GREENERY_IDS)).max(MAX_GREENERY).optional(),
+      wrap: z.enum(WRAP_IDS).optional(),
+      ribbon: z.enum(RIBBON_IDS).optional(),
+      // Doodle: stroke geometry, bounded in count, length and coordinate range.
+      doodle: doodleSchema.optional(),
+      // Colour / lettering / placement / decorations — all closed sets too.
+      style: styleSchema.optional()
     })
     .strip(),
   coupon: z

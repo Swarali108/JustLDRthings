@@ -1,4 +1,5 @@
 import { ItemBlock, type RenderItem } from "@/components/scrapbook/ItemBlock";
+import { readStyle } from "@/lib/style";
 
 /**
  * The recipient-facing "For You" experience. Used by both the owner preview and
@@ -14,8 +15,16 @@ export function ScrapbookPage({
   items: RenderItem[];
   token?: string;
 }) {
+  // The page takes its colour from the first item. A single creation shared on
+  // its own therefore themes its whole page, which is what someone picking
+  // "Midnight plum" in the creator expects to see.
+  const pageStyle = items.length ? readStyle(items[0].payload) : null;
+  const pageClass = pageStyle
+    ? `recipient sty theme-${pageStyle.theme} themed-page`
+    : "recipient";
+
   return (
-    <main className="recipient">
+    <main className={pageClass}>
       <header className="reveal-hero">
         <p className="script-lg">For You ♡</p>
         <h1>{title}</h1>

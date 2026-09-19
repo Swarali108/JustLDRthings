@@ -1,0 +1,449 @@
+/* ---------------------------------------------------------------------------
+   Item styling: colour theme, lettering, placement, decorations.
+
+   Driven by `lib/style.ts`. Every class here corresponds to a value in one of
+   the closed sets there -- if you add an option, add it in both places.
+
+   Themes set CSS variables rather than properties directly, so one class on a
+   wrapper restyles everything inside it, including the page background when the
+   same theme is applied at page level.
+   --------------------------------------------------------------------------- */
+
+.sty {
+  --sty-card: var(--white);
+  --sty-ink: var(--ink);
+  --sty-accent: var(--burgundy);
+  --sty-border: rgba(140, 101, 124, 0.32);
+  --sty-muted: var(--mauve);
+  --sty-page: linear-gradient(180deg, var(--mist) 0%, var(--cream) 55%, var(--cream) 100%);
+}
+
+.theme-classic {
+  --sty-card: var(--white);
+  --sty-ink: var(--ink);
+  --sty-accent: var(--burgundy);
+  --sty-border: rgba(140, 101, 124, 0.32);
+  --sty-muted: var(--mauve);
+  --sty-page: linear-gradient(180deg, var(--mist) 0%, var(--cream) 55%, var(--cream) 100%);
+}
+
+.theme-midnight {
+  --sty-card: rgba(252, 250, 248, 0.07);
+  --sty-ink: #f4e9d8;
+  --sty-accent: #e0b973;
+  --sty-border: rgba(224, 185, 115, 0.45);
+  --sty-muted: #c7ab9b;
+  --sty-page: linear-gradient(180deg, var(--deep-plum) 0%, var(--aubergine) 60%, var(--blackberry) 100%);
+}
+
+.theme-seaside {
+  --sty-card: rgba(252, 250, 248, 0.92);
+  --sty-ink: #1d2f3d;
+  --sty-accent: var(--ocean);
+  --sty-border: rgba(53, 106, 137, 0.3);
+  --sty-muted: var(--slate);
+  --sty-page: linear-gradient(180deg, var(--powder) 0%, var(--mist) 60%, var(--white) 100%);
+}
+
+.theme-pressed {
+  --sty-card: #fbf7ee;
+  --sty-ink: #3a3026;
+  --sty-accent: #7a6a4f;
+  --sty-border: rgba(122, 106, 79, 0.4);
+  --sty-muted: #8a7c66;
+  --sty-page: linear-gradient(180deg, #f2ece2 0%, var(--cream) 100%);
+}
+
+.theme-polaroid {
+  --sty-card: #fff;
+  --sty-ink: #2b2b2b;
+  --sty-accent: var(--burgundy);
+  --sty-border: rgba(0, 0, 0, 0.12);
+  --sty-muted: #6f6f6f;
+  --sty-page: #e9e4dd;
+}
+
+/* --- lettering ----------------------------------------------------------- */
+
+.font-serif { font-family: "Cormorant Garamond", Georgia, serif; }
+.font-script { font-family: Caveat, cursive; font-size: 1.22em; line-height: 1.45; }
+.font-sans { font-family: Inter, system-ui, sans-serif; }
+.font-type { font-family: ui-monospace, "Courier New", Courier, monospace; font-size: 0.94em; }
+
+/* --- placement ----------------------------------------------------------- */
+
+.align-left { text-align: left; }
+.align-center { text-align: center; }
+.align-right { text-align: right; }
+
+/* --- the styled block itself --------------------------------------------- */
+
+.styled-block {
+  background: var(--sty-card);
+  border: 1px solid var(--sty-border);
+  border-radius: 18px;
+  color: var(--sty-ink);
+  padding: 26px 28px;
+  position: relative;
+  transition: transform 0.18s ease;
+}
+
+.styled-block strong,
+.styled-block h3 { color: var(--sty-ink); }
+
+.styled-block .sty-accent,
+.styled-block a { color: var(--sty-accent); }
+
+.styled-block .sty-muted { color: var(--sty-muted); }
+
+/* The photo-album look wants a thick bottom margin, like a real print. */
+.theme-polaroid .styled-block {
+  border-radius: 4px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  padding-bottom: 46px;
+}
+
+.theme-pressed .styled-block {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* --- decorations --------------------------------------------------------- */
+
+/* Scattered at fixed points rather than dragged: it gives the handmade look
+   without needing a drag surface, and it survives any screen width. */
+.sticker-layer {
+  inset: -14px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.sticker {
+  font-size: 1.5rem;
+  line-height: 1;
+  position: absolute;
+  filter: drop-shadow(0 4px 6px rgba(45, 21, 37, 0.18));
+}
+
+.sticker-0 { top: -6px; left: -8px; transform: rotate(-16deg); }
+.sticker-1 { top: -10px; right: -6px; transform: rotate(14deg); }
+.sticker-2 { bottom: -8px; right: -10px; transform: rotate(-9deg); }
+.sticker-3 { bottom: -6px; left: -6px; transform: rotate(11deg); }
+.sticker-4 { top: 42%; left: -16px; transform: rotate(-22deg); }
+.sticker-5 { top: 40%; right: -16px; transform: rotate(18deg); }
+
+@media (max-width: 520px) {
+  .sticker { font-size: 1.15rem; }
+  .sticker-4, .sticker-5 { display: none; }
+}
+
+/* --- page-level theming (recipient view) --------------------------------- */
+
+.themed-page {
+  background: var(--sty-page);
+  min-height: 100vh;
+}
+
+.themed-page .reveal-hero h1,
+.themed-page .script-lg { color: var(--sty-ink); }
+
+.themed-page .script-lg { color: var(--sty-accent); }
+
+.themed-page .recipient-foot { color: var(--sty-muted); }
+
+/* --- the picker in the creator ------------------------------------------- */
+
+.style-panel { margin-top: 4px; }
+
+.style-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.style-chip {
+  background: var(--white);
+  border: 1px solid rgba(140, 101, 124, 0.35);
+  border-radius: 999px;
+  color: var(--blackberry);
+  cursor: pointer;
+  font-family: Inter, sans-serif;
+  font-size: 0.82rem;
+  padding: 7px 14px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.style-chip:hover { border-color: var(--burgundy); }
+
+.style-chip[aria-pressed="true"] {
+  background: var(--aubergine);
+  border-color: var(--aubergine);
+  color: var(--cream);
+}
+
+.sticker-chip {
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.style-legend {
+  color: var(--mauve);
+  display: block;
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  margin-top: 16px;
+  text-transform: uppercase;
+}
+
+/* --- bouquet ------------------------------------------------------------- */
+
+.bouquet-pick {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  margin-top: 10px;
+}
+
+.bouquet-option {
+  align-items: center;
+  background: var(--white);
+  border: 1px solid rgba(140, 101, 124, 0.3);
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.bouquet-option[aria-pressed="true"] {
+  border-color: var(--burgundy);
+  box-shadow: 0 0 0 2px rgba(106, 33, 71, 0.18);
+}
+
+.bouquet-option .bloom {
+  border-radius: 50%;
+  height: 30px;
+  width: 30px;
+}
+
+.bouquet-option small {
+  color: var(--mauve);
+  font-family: Inter, sans-serif;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.bouquet-option strong {
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+}
+
+.bouquet-stage {
+  align-items: flex-end;
+  display: flex;
+  justify-content: center;
+  min-height: 250px;
+  padding-top: 20px;
+  position: relative;
+}
+
+.bouquet-blooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 260px;
+  padding-bottom: 8px;
+}
+
+.bouquet-bloom {
+  border-radius: 50%;
+  box-shadow: inset 0 -4px 10px rgba(45, 21, 37, 0.14);
+  filter: drop-shadow(0 6px 8px rgba(45, 21, 37, 0.16));
+  height: 40px;
+  position: relative;
+  width: 40px;
+}
+
+.bouquet-bloom::after {
+  background: rgba(252, 250, 248, 0.75);
+  border-radius: 50%;
+  content: "";
+  height: 11px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 11px;
+}
+
+.bouquet-cone {
+  background:
+    repeating-linear-gradient(110deg, rgba(106, 33, 71, 0.08) 0 12px, rgba(252, 250, 248, 0.95) 13px 26px),
+    var(--cream);
+  border-radius: 0 0 60px 60px;
+  clip-path: polygon(16% 0, 84% 0, 68% 100%, 32% 100%);
+  height: 120px;
+  margin-top: -14px;
+  width: 190px;
+}
+
+.bouquet-meanings {
+  color: var(--sty-muted);
+  font-family: Inter, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-top: 14px;
+}
+
+/* --- collage ------------------------------------------------------------- */
+
+.collage-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.collage-grid.count-1 { grid-template-columns: 1fr; }
+.collage-grid.count-3 .collage-cell:first-child,
+.collage-grid.count-5 .collage-cell:first-child { grid-column: span 2; }
+
+.collage-cell {
+  aspect-ratio: 1;
+  background: var(--mist);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.collage-cell img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.collage-remove {
+  background: rgba(45, 21, 37, 0.72);
+  border: none;
+  border-radius: 50%;
+  color: var(--cream);
+  cursor: pointer;
+  height: 24px;
+  line-height: 1;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .styled-block { transition: none; }
+}
+
+/* --- greenery, wrapping and ribbon --------------------------------------- */
+
+.bouquet-greens {
+  align-items: flex-end;
+  display: flex;
+  justify-content: center;
+  margin-bottom: -22px;
+}
+
+.sprig {
+  border-radius: 50% 50% 40% 40%;
+  display: inline-block;
+  height: 78px;
+  margin: 0 -2px;
+  opacity: 0.9;
+  transform-origin: bottom center;
+  width: 11px;
+}
+
+.sprig-frond { border-radius: 50% 50% 4px 4px; height: 92px; width: 7px; }
+.sprig-spray { border-radius: 50%; height: 58px; opacity: 0.75; width: 17px; }
+
+.sprig-swatch { border-radius: 50% 50% 40% 40% !important; height: 30px; width: 14px; }
+.sprig-swatch.sprig-frond { border-radius: 50% 50% 3px 3px !important; width: 10px; }
+.sprig-swatch.sprig-spray { border-radius: 50% !important; width: 22px; height: 22px; }
+
+.bouquet-cone { position: relative; }
+
+.bouquet-ribbon {
+  border-radius: 6px;
+  height: 13px;
+  left: 50%;
+  position: absolute;
+  top: 26px;
+  transform: translateX(-50%);
+  width: 78px;
+  box-shadow: 0 2px 4px rgba(45, 21, 37, 0.2);
+}
+
+.wrap-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.wrap-swatch {
+  border: 1px solid rgba(45, 21, 37, 0.18);
+  border-radius: 4px;
+  display: inline-block;
+  height: 16px;
+  width: 16px;
+}
+
+/* --- doodle -------------------------------------------------------------- */
+
+.doodle-tools { margin-top: 10px; }
+
+.doodle-surface {
+  /* Without this a drag scrolls the page instead of drawing on touch screens. */
+  touch-action: none;
+  background: var(--white);
+  border: 1px solid rgba(140, 101, 124, 0.35);
+  border-radius: 14px;
+  cursor: crosshair;
+  display: block;
+  margin-top: 12px;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.doodle-svg {
+  border-radius: 12px;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.ink-chip {
+  border: 2px solid rgba(45, 21, 37, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  height: 28px;
+  padding: 0;
+  width: 28px;
+}
+
+.ink-chip[aria-pressed="true"] {
+  border-color: var(--aubergine);
+  box-shadow: 0 0 0 3px rgba(67, 24, 44, 0.22);
+}
+
+.nib-chip {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 42px;
+}
+
+.nib-dot { border-radius: 50%; display: inline-block; }

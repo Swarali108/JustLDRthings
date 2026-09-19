@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createMediaDraft, attachMedia, discardDraft } from "@/app/create/actions";
 import { LIMITS, getUserId, uploadToUserMedia } from "@/components/creators/upload";
+import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { StylePanel } from "@/components/creators/StylePanel";
 import { GuestResult } from "@/components/guest/GuestResult";
 import {
   readAsDataUrl,
@@ -19,6 +21,7 @@ export function VoiceCreator({ signedIn }: { signedIn: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [filename, setFilename] = useState("voice-note.webm");
+  const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<{ title: string; blocks: KeepsakeBlock[] } | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -102,7 +105,8 @@ export function VoiceCreator({ signedIn }: { signedIn: boolean }) {
             title: title || "A voice note",
             transcript,
             mediaKind: "audio",
-            mediaDataUrl: dataUrl ?? undefined
+            mediaDataUrl: dataUrl ?? undefined,
+            style
           }
         ]
       });
@@ -184,6 +188,11 @@ export function VoiceCreator({ signedIn }: { signedIn: boolean }) {
         <div className="field">
           <label htmlFor="transcript">Text version (optional, for accessibility)</label>
           <textarea id="transcript" name="transcript" placeholder="What you said…" />
+        </div>
+
+        <div className="field">
+          <label>Dress it up</label>
+          <StylePanel value={style} onChange={setStyle} />
         </div>
 
         {!signedIn ? (

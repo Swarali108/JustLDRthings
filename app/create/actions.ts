@@ -9,8 +9,11 @@ import {
   songSchema,
   couponSchema,
   mediaMetaSchema,
-  voiceMetaSchema
+  voiceMetaSchema,
+  bouquetSchema,
+  doodleItemSchema
 } from "@/lib/validation";
+import { styleSchema } from "@/lib/style";
 import type { ContentType, MediaType } from "@/types/db";
 
 export interface CreateState {
@@ -33,13 +36,23 @@ function toIso(local: string): string | null {
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+/** Style arrives as a JSON string in a hidden field; a bad one falls back to defaults. */
+function parseStyle(raw: FormDataEntryValue | null) {
+  try {
+    return styleSchema.parse(JSON.parse(String(raw || "{}")));
+  } catch {
+    return styleSchema.parse({});
+  }
+}
+
 // ---- Text creators -------------------------------------------------------
 
 export async function saveNote(_prev: CreateState, formData: FormData): Promise<CreateState> {
   const parsed = noteSchema.safeParse({
     title: formData.get("title") ?? "",
     body: formData.get("body") ?? "",
-    paper: formData.get("paper") ?? "cream"
+    paper: formData.get("paper") ?? "cream",
+    style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -48,7 +61,7 @@ export async function saveNote(_prev: CreateState, formData: FormData): Promise<
     owner_id: user.id,
     type: "note" as ContentType,
     title: parsed.data.title || "A little note",
-    payload_json: { body: parsed.data.body, paper: parsed.data.paper }
+    payload_json: { body: parsed.data.body, paper: parsed.data.paper, style: parsed.data.style }
   });
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
@@ -59,7 +72,8 @@ export async function saveLetter(_prev: CreateState, formData: FormData): Promis
   const parsed = letterSchema.safeParse({
     title: formData.get("title") ?? "",
     body: formData.get("body") ?? "",
-    paper: formData.get("paper") ?? "cream"
+    paper: formData.get("paper") ?? "cream",
+    style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -79,7 +93,8 @@ export async function saveSong(_prev: CreateState, formData: FormData): Promise<
   const parsed = songSchema.safeParse({
     title: formData.get("title") ?? "",
     url: formData.get("url") ?? "",
-    note: formData.get("note") ?? ""
+    note: formData.get("note") ?? "",
+    style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -95,7 +110,7 @@ export async function saveSong(_prev: CreateState, formData: FormData): Promise<
     owner_id: user.id,
     type: "song" as ContentType,
     title: parsed.data.title || "A song for you",
-    payload_json: { url: parsed.data.url, note: parsed.data.note, provider }
+    payload_json: { url: parsed.data.url, note: parsed.data.note, provider, style: parsed.data.style }
   });
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
@@ -106,7 +121,8 @@ export async function saveCoupon(_prev: CreateState, formData: FormData): Promis
   const parsed = couponSchema.safeParse({
     title: formData.get("title") ?? "",
     coupon_text: formData.get("coupon_text") ?? "",
-    expires_at: formData.get("expires_at") ?? ""
+    expires_at: formData.get("expires_at") ?? "",
+    style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -117,7 +133,7 @@ export async function saveCoupon(_prev: CreateState, formData: FormData): Promis
       owner_id: user.id,
       type: "coupon" as ContentType,
       title: parsed.data.title || "A love coupon",
-      payload_json: {}
+      payload_json: { style: parsed.data.style }
     })
     .select("id")
     .single();
@@ -136,7 +152,80 @@ export async function saveCoupon(_prev: CreateState, formData: FormData): Promis
   redirect("/dashboard?created=coupon");
 }
 
-// ---- Media / voice (multi-step: client uploads between these calls) -------
+export async function saveBouquet(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  const stems = String(formData.get("stems") || "")
+    .split(",")
+    .filter(Boolean);
+
+  const greenery = String(formData.get("greenery") || "")
+    .split(",")
+    .filter(Boolean);
+
+  const parsed = bouquetSchema.safeParse({
+    title: formData.get("title") ?? "",
+    stems,
+    greenery,
+    wrap: formData.get("wrap") || "cream",
+    ribbon: formData.get("ribbon") || "none",
+    note: formData.get("note") ?? "",
+    style: parseStyle(formData.get("style"))
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("content_items").insert({
+    owner_id: user.id,
+    type: "bouquet" as ContentType,
+    title: parsed.data.title || "A bouquet for you",
+    payload_json: {
+      stems: parsed.data.stems,
+      greenery: parsed.data.greenery,
+      wrap: parsed.data.wrap,
+      ribbon: parsed.data.ribbon,
+      note: parsed.data.note,
+      style: parsed.data.style
+    }
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  redirect("/dashboard?created=bouquet");
+}
+
+export async function saveDoodle(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  // The drawing lives in component state, so it arrives as JSON in a hidden
+  // field. Malformed JSON is a validation failure, not a crash.
+  let drawing: unknown;
+  try {
+    drawing = JSON.parse(String(formData.get("doodle") || "null"));
+  } catch {
+    return { error: "That drawing didn't come through. Try again." };
+  }
+
+  const parsed = doodleItemSchema.safeParse({
+    title: formData.get("title") ?? "",
+    doodle: drawing,
+    note: formData.get("note") ?? "",
+    style: parseStyle(formData.get("style"))
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("content_items").insert({
+    owner_id: user.id,
+    type: "doodle" as ContentType,
+    title: parsed.data.title || "A little doodle",
+    payload_json: {
+      doodle: parsed.data.doodle,
+      note: parsed.data.note,
+      style: parsed.data.style
+    }
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  redirect("/dashboard?created=doodle");
+}
+
+// ---- Media / voice / collage (multi-step: client uploads between calls) ----
 
 export interface DraftResult {
   ok: boolean;
@@ -146,7 +235,7 @@ export interface DraftResult {
 
 /** Step 1: create the empty content item so we have an id to key storage on. */
 export async function createMediaDraft(
-  type: "media" | "voice",
+  type: "media" | "voice" | "collage",
   title: string,
   extra: Record<string, unknown>
 ): Promise<DraftResult> {
@@ -155,7 +244,8 @@ export async function createMediaDraft(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   const { supabase, user } = await requireUser();
-  const fallback = type === "voice" ? "A voice note" : "A little moment";
+  const fallback =
+    type === "voice" ? "A voice note" : type === "collage" ? "A little collection" : "A little moment";
   const { data, error } = await supabase
     .from("content_items")
     .insert({

@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { saveSong, type CreateState } from "@/app/create/actions";
 import { songSchema } from "@/lib/validation";
+import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { StylePanel } from "@/components/creators/StylePanel";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
@@ -19,6 +21,7 @@ export function SongCreator({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(saveSong, initial);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
+  const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [guestError, setGuestError] = useState("");
 
@@ -50,7 +53,8 @@ export function SongCreator({ signedIn }: { signedIn: boolean }) {
       payload: {
         url: parsed.data.url,
         note: parsed.data.note,
-        provider: new URL(parsed.data.url).hostname.replace(/^www\./, "")
+        provider: new URL(parsed.data.url).hostname.replace(/^www\./, ""),
+        style
       }
     };
 
@@ -68,6 +72,7 @@ export function SongCreator({ signedIn }: { signedIn: boolean }) {
   return (
     <>
       <form {...formProps} className="studio-panel">
+        <input type="hidden" name="style" value={JSON.stringify(style)} />
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input id="title" name="title" placeholder="A song for you" />
@@ -96,6 +101,11 @@ export function SongCreator({ signedIn }: { signedIn: boolean }) {
             onChange={(e) => setNote(e.target.value)}
             placeholder="This song made me think of you…"
           />
+        </div>
+
+        <div className="field">
+          <label>Dress it up</label>
+          <StylePanel value={style} onChange={setStyle} />
         </div>
 
         {error ? (

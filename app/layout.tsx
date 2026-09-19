@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./ui.css";
+import "./style.css";
 
 export const metadata: Metadata = {
   title: "JustLDRthings ♡ — Little things, big feelings.",

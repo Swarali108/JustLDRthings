@@ -9,6 +9,8 @@ import {
   getUserId,
   uploadToUserMedia
 } from "@/components/creators/upload";
+import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { StylePanel } from "@/components/creators/StylePanel";
 import { GuestResult } from "@/components/guest/GuestResult";
 import {
   readAsDataUrl,
@@ -22,6 +24,7 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<{ title: string; blocks: KeepsakeBlock[] } | null>(null);
 
   function onPick(f: File | null) {
@@ -70,7 +73,8 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
             title: title || "A little moment",
             caption,
             mediaKind: mt,
-            mediaDataUrl: dataUrl ?? undefined
+            mediaDataUrl: dataUrl ?? undefined,
+            style
           }
         ]
       });
@@ -116,6 +120,7 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
   return (
     <>
       <form onSubmit={onSubmit} className="studio-panel">
+        <input type="hidden" name="style" value={JSON.stringify(style)} />
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input id="title" name="title" placeholder="A little moment" />
@@ -134,6 +139,11 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
         <div className="field">
           <label htmlFor="caption">Caption (optional)</label>
           <input id="caption" name="caption" placeholder="Wish you were here…" />
+        </div>
+
+        <div className="field">
+          <label>Dress it up</label>
+          <StylePanel value={style} onChange={setStyle} />
         </div>
 
         {!signedIn ? (

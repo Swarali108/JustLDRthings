@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { saveCoupon, type CreateState } from "@/app/create/actions";
 import { couponSchema } from "@/lib/validation";
+import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { StylePanel } from "@/components/creators/StylePanel";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
@@ -18,6 +20,7 @@ interface GuestDone {
 export function CouponCreator({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(saveCoupon, initial);
   const [text, setText] = useState("");
+  const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [guestError, setGuestError] = useState("");
 
@@ -42,7 +45,7 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
     const item: GuestItem = {
       type: "coupon",
       title,
-      payload: {},
+      payload: { style },
       coupon: {
         coupon_text: parsed.data.coupon_text,
         expires_at: expiry && !isNaN(expiry.getTime()) ? expiry.toISOString() : null
@@ -63,6 +66,7 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
   return (
     <>
       <form {...formProps} className="studio-panel">
+        <input type="hidden" name="style" value={JSON.stringify(style)} />
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input id="title" name="title" placeholder="A love coupon" />
@@ -81,6 +85,11 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
         <div className="field">
           <label htmlFor="expires_at">Expires (optional)</label>
           <input id="expires_at" name="expires_at" type="datetime-local" />
+        </div>
+
+        <div className="field">
+          <label>Dress it up</label>
+          <StylePanel value={style} onChange={setStyle} />
         </div>
 
         {!signedIn ? (

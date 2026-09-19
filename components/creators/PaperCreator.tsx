@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { saveNote, saveLetter, type CreateState } from "@/app/create/actions";
 import { PAPER_THEMES, noteSchema, letterSchema } from "@/lib/validation";
 import { AiAssist } from "@/components/creators/AiAssist";
+import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { StylePanel } from "@/components/creators/StylePanel";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
@@ -28,6 +30,7 @@ export function PaperCreator({
 
   const [body, setBody] = useState("");
   const [paper, setPaper] = useState<(typeof PAPER_THEMES)[number]>("cream");
+  const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [guestError, setGuestError] = useState("");
 
@@ -54,7 +57,7 @@ export function PaperCreator({
     const item: GuestItem = {
       type: kind,
       title,
-      payload: { body: parsed.data.body, paper: parsed.data.paper }
+      payload: { body: parsed.data.body, paper: parsed.data.paper, style }
     };
 
     setGuestError("");
@@ -73,6 +76,7 @@ export function PaperCreator({
   return (
     <>
       <form {...formProps} className="studio-panel">
+        <input type="hidden" name="style" value={JSON.stringify(style)} />
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input
@@ -112,6 +116,11 @@ export function PaperCreator({
             <option value="blue">Powder blue</option>
             <option value="plum">Deep plum</option>
           </select>
+        </div>
+
+        <div className="field">
+          <label>Dress it up</label>
+          <StylePanel value={style} onChange={setStyle} />
         </div>
 
         {error ? (

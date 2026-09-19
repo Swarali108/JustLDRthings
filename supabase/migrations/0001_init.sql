@@ -1,5 +1,11 @@
 -- JustLDRthings — initial schema, RLS, storage, and share-resolution functions.
--- Apply in the Supabase SQL editor (or via the Supabase CLI) on a fresh project.
+-- Apply in the Supabase SQL editor (or via the Supabase CLI).
+--
+-- This file is RE-RUNNABLE. Tables use `if not exists`, functions use `create or
+-- replace`, and bucket inserts use `on conflict do nothing`. Postgres has no
+-- `create policy if not exists`, so every policy is preceded by `drop policy if
+-- exists` — without that pairing, a second run fails on the first policy with
+-- `42710: policy already exists` and every statement after it is skipped.
 
 -- ---------------------------------------------------------------------------
 -- Extensions
@@ -152,22 +158,28 @@ alter table public.coupons       enable row level security;
 alter table public.page_shares   enable row level security;
 
 -- profiles: a user sees & edits only their own profile.
+drop policy if exists "profiles: select own" on public.profiles;
 create policy "profiles: select own" on public.profiles
   for select using (auth.uid() = id);
+drop policy if exists "profiles: insert own" on public.profiles;
 create policy "profiles: insert own" on public.profiles
   for insert with check (auth.uid() = id);
+drop policy if exists "profiles: update own" on public.profiles;
 create policy "profiles: update own" on public.profiles
   for update using (auth.uid() = id) with check (auth.uid() = id);
 
 -- pages: owner-only CRUD.
+drop policy if exists "pages: owner all" on public.pages;
 create policy "pages: owner all" on public.pages
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 -- content_items: owner-only CRUD.
+drop policy if exists "content_items: owner all" on public.content_items;
 create policy "content_items: owner all" on public.content_items
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 -- page_items: owner of the parent page only.
+drop policy if exists "page_items: owner all" on public.page_items;
 create policy "page_items: owner all" on public.page_items
   for all using (
     exists (select 1 from public.pages p where p.id = page_id and p.owner_id = auth.uid())
@@ -176,10 +188,12 @@ create policy "page_items: owner all" on public.page_items
   );
 
 -- media_assets: owner-only CRUD.
+drop policy if exists "media_assets: owner all" on public.media_assets;
 create policy "media_assets: owner all" on public.media_assets
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 -- coupons: owner of the parent content item only (recipient redemption is via RPC).
+drop policy if exists "coupons: owner all" on public.coupons;
 create policy "coupons: owner all" on public.coupons
   for all using (
     exists (select 1 from public.content_items c where c.id = content_item_id and c.owner_id = auth.uid())
@@ -188,6 +202,7 @@ create policy "coupons: owner all" on public.coupons
   );
 
 -- page_shares: owner of the parent page only.
+drop policy if exists "page_shares: owner all" on public.page_shares;
 create policy "page_shares: owner all" on public.page_shares
   for all using (
     exists (select 1 from public.pages p where p.id = page_id and p.owner_id = auth.uid())
@@ -328,23 +343,28 @@ on conflict (id) do nothing;
 
 -- Owners can manage objects stored under a top-level folder named after their user id:
 --   user-media/<auth.uid()>/<content_item_id>/<filename>
+drop policy if exists "user-media: owner read" on storage.objects;
 create policy "user-media: owner read" on storage.objects
   for select using (
     bucket_id = 'user-media' and (storage.foldername(name))[1] = auth.uid()::text
   );
+drop policy if exists "user-media: owner insert" on storage.objects;
 create policy "user-media: owner insert" on storage.objects
   for insert with check (
     bucket_id = 'user-media' and (storage.foldername(name))[1] = auth.uid()::text
   );
+drop policy if exists "user-media: owner update" on storage.objects;
 create policy "user-media: owner update" on storage.objects
   for update using (
     bucket_id = 'user-media' and (storage.foldername(name))[1] = auth.uid()::text
   );
+drop policy if exists "user-media: owner delete" on storage.objects;
 create policy "user-media: owner delete" on storage.objects
   for delete using (
     bucket_id = 'user-media' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "previews: owner all" on storage.objects;
 create policy "previews: owner all" on storage.objects
   for all using (
     bucket_id = 'generated-previews' and (storage.foldername(name))[1] = auth.uid()::text
@@ -352,5 +372,6 @@ create policy "previews: owner all" on storage.objects
     bucket_id = 'generated-previews' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "app-assets: public read" on storage.objects;
 create policy "app-assets: public read" on storage.objects
   for select using (bucket_id = 'app-assets');
