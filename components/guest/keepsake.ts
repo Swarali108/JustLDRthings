@@ -10,6 +10,14 @@ import { paperStyle, type PaperChoice } from "@/lib/paper";
 import { ENVELOPE_SKINS, type EnvelopeId } from "@/lib/envelope";
 import { COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
 import {
+  BQ,
+  fanOut,
+  balanced,
+  wrapPetal,
+  WRAP_LAYERS,
+  STEM_TAILS
+} from "@/lib/bouquet-layout";
+import {
   DOODLE_W,
   DOODLE_H,
   strokePath,
@@ -119,56 +127,88 @@ function renderBouquet(block: KeepsakeBlock, style: ItemStyle): string {
   const stems = block.stems || [];
   const greens = block.greenery || [];
 
-  /** Same fan as the app, so the offline copy matches what was arranged. */
-  function fan(i: number, total: number, spread: number, lift: number): string {
-    const mid = (total - 1) / 2;
-    const offset = total === 1 ? 0 : (i - mid) / mid;
-    return `transform:translateX(${(offset * spread).toFixed(1)}px) translateY(${(Math.abs(offset) * lift).toFixed(1)}px) rotate(${(offset * 16).toFixed(1)}deg);`;
-  }
-
-  const leaves = greens
-    .map((id, i) => {
-      const leaf = GREENERY_BY_ID[id];
-      if (!leaf) return "";
-      return `<span class="bq-item" style="${fan(i, greens.length, 78, 16)}">
-        <svg viewBox="-30 -46 60 92" width="64" height="64">
-          <path d="M 0 44 C -2 18, -1 -8, 0 -42" stroke="${esc(leaf.color)}" stroke-width="2.2" fill="none"/>
-          ${Array.from({ length: leaf.leaves }, (_, k) => {
-            const y = 36 - k * (74 / leaf.leaves);
-            const tone = k % 2 === 0 ? leaf.color : leaf.tone;
-            return `<ellipse cx="11" cy="${y.toFixed(1)}" rx="9" ry="5.5" fill="${esc(tone)}" transform="rotate(-28 11 ${y.toFixed(1)})"/><ellipse cx="-11" cy="${(y - 4).toFixed(1)}" rx="9" ry="5.5" fill="${esc(tone)}" transform="rotate(28 -11 ${(y - 4).toFixed(1)})"/>`;
-          }).join("")}
-        </svg>
-      </span>`;
-    })
-    .join("");
-
-  const blooms = stems
-    .map((id, i) => {
-      const flower = FLOWER_BY_ID[id];
-      if (!flower) return "";
-      const size = 46 + ((i * 5) % 3) * 9;
-      const petals = Array.from({ length: flower.petals }, (_, k) =>
-        `<ellipse cx="0" cy="-20" rx="11" ry="19" fill="${esc(flower.color)}" transform="rotate(${((360 / flower.petals) * k).toFixed(1)})"/>`
-      ).join("");
-      return `<span class="bq-item" style="${fan(i, stems.length, 62, 22)}">
-        <svg viewBox="-50 -50 100 100" width="${size}" height="${size}">
-          ${petals}
-          <circle r="9" fill="${esc(flower.center)}"/>
-        </svg>
-      </span>`;
-    })
-    .join("");
-
   const paper = WRAP_BY_ID[block.wrap || "peach"] || WRAP_BY_ID.peach;
   const tie = RIBBON_BY_ID[block.ribbon || "none"] || RIBBON_BY_ID.none;
+
+  // Same layout module the app uses, so the saved file matches what was
+  // arranged on screen rather than approximating it.
+  const leafPlaces = fanOut(balanced(greens), BQ.greenSpread, BQ.greenReach);
+  const bloomPlaces = fanOut(balanced(stems), BQ.flowerSpread, BQ.flowerReach, 74);
+
+  const tails = STEM_TAILS.map(
+    (dx) =>
+      `<line x1="${(BQ.tieX + dx * 0.4).toFixed(1)}" y1="${BQ.tieY}" x2="${BQ.tieX + dx}" y2="${BQ.tieY + 118}"/>`
+  ).join("");
+
+  const backPaper = WRAP_LAYERS.back
+    .map(
+      (l) =>
+        `<path d="${wrapPetal(l.length, l.halfWidth)}" fill="${esc(paper.front)}" opacity="${l.opacity}" transform="translate(${BQ.tieX} ${BQ.tieY}) rotate(${l.angle})"/>`
+    )
+    .join("");
+
+  const frontPaper = WRAP_LAYERS.front
+    .map(
+      (l, i) =>
+        `<path d="${wrapPetal(l.length, l.halfWidth)}" fill="${esc(i === WRAP_LAYERS.front.length - 1 ? paper.fold : paper.front)}" opacity="${l.opacity}" transform="translate(${BQ.tieX} ${BQ.tieY}) rotate(${l.angle})"/>`
+    )
+    .join("");
+
+  const leaves = leafPlaces
+    .map((g) => {
+      const leaf = GREENERY_BY_ID[g.id];
+      if (!leaf) return "";
+      const step = 76 / leaf.leaves;
+      const blades = Array.from({ length: leaf.leaves }, (_, i) => {
+        const y = -12 - i * step;
+        const tone = i % 2 === 0 ? leaf.color : leaf.tone;
+        return (
+          `<ellipse cx="10" cy="${y.toFixed(1)}" rx="8.5" ry="5" fill="${esc(tone)}" transform="rotate(-30 10 ${y.toFixed(1)})"/>` +
+          `<ellipse cx="-10" cy="${(y - step / 2).toFixed(1)}" rx="8.5" ry="5" fill="${esc(tone)}" transform="rotate(30 -10 ${(y - step / 2).toFixed(1)})"/>`
+        );
+      }).join("");
+      return `<g transform="translate(${BQ.tieX} ${BQ.tieY}) rotate(${g.angle.toFixed(1)}) scale(${(g.reach / 90).toFixed(3)})" opacity="${g.depth ? 1 : 0.9}">
+      <path d="M 0 0 C -2 -28, -1 -58, 0 -90" stroke="${esc(leaf.color)}" stroke-width="2.2" fill="none"/>${blades}
+    </g>`;
+    })
+    .join("");
+
+  const stemLines = bloomPlaces
+    .map(
+      (b) =>
+        `<path d="M ${BQ.tieX} ${BQ.tieY} Q ${(BQ.tieX + (b.x - BQ.tieX) * 0.35).toFixed(1)} ${(BQ.tieY - b.reach * 0.55).toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}"/>`
+    )
+    .join("");
+
+  const heads = [0, 1]
+    .map((depth) =>
+      bloomPlaces
+        .filter((b) => b.depth === depth)
+        .map((b) => {
+          const flower = FLOWER_BY_ID[b.id];
+          if (!flower) return "";
+          const petals = Array.from(
+            { length: flower.petals },
+            (_, k) =>
+              `<ellipse cx="0" cy="-20" rx="11" ry="18" fill="${esc(flower.color)}" transform="rotate(${((360 / flower.petals) * k).toFixed(1)})"/>`
+          ).join("");
+          return `<g transform="translate(${b.x.toFixed(1)} ${b.y.toFixed(1)}) scale(${(b.size / 100).toFixed(3)}) rotate(${(b.angle * 0.5).toFixed(1)})">
+        ${petals}<circle r="9" fill="${esc(flower.center)}"/><circle r="4" fill="${esc(flower.inner)}" opacity="0.5"/>
+      </g>`;
+        })
+        .join("")
+    )
+    .join("");
+
   const bow =
     tie.id !== "none"
-      ? `<svg class="bq-bow" viewBox="0 0 120 50" width="110">
-      <path d="M 58 25 C 34 4, 6 8, 10 25 C 6 42, 34 46, 58 25 Z" fill="${esc(tie.color)}"/>
-      <path d="M 62 25 C 86 4, 114 8, 110 25 C 114 42, 86 46, 62 25 Z" fill="${esc(tie.color)}"/>
-      <rect x="54" y="18" width="12" height="15" rx="4" fill="${esc(tie.shade)}"/>
-    </svg>`
+      ? `<g transform="translate(${BQ.tieX} ${BQ.tieY - 10})">
+      <path d="M -6 0 C -44 -26, -76 -18, -70 2 C -76 22, -44 28, -6 4 Z" fill="${esc(tie.color)}"/>
+      <path d="M 6 0 C 44 -26, 76 -18, 70 2 C 76 22, 44 28, 6 4 Z" fill="${esc(tie.color)}"/>
+      <path d="M -8 6 C -18 34, -26 48, -34 62 L -18 60 C -12 46, -7 28, -4 12 Z" fill="${esc(tie.shade)}"/>
+      <path d="M 8 6 C 18 34, 26 48, 34 62 L 18 60 C 12 46, 7 28, 4 12 Z" fill="${esc(tie.shade)}"/>
+      <rect x="-11" y="-11" width="22" height="26" rx="8" fill="${esc(tie.shade)}"/>
+    </g>`
       : "";
 
   const meanings = arrangementMeanings(stems, greens);
@@ -176,20 +216,17 @@ function renderBouquet(block: KeepsakeBlock, style: ItemStyle): string {
   return `<article class="block" style="${blockAttrs(style)}">
   ${renderStickers(style)}
   ${block.title ? `<h3>${esc(block.title)}</h3>` : ""}
-  <div class="bouquet">
-    <div class="bq-row">${leaves}</div>
-    <div class="bq-row bq-front">${blooms}</div>
-    <div class="bq-wrap">
-      <svg viewBox="0 0 200 210" width="180">
-        <path d="M 100 4 L 190 66 L 132 206 L 68 206 L 10 66 Z" fill="${esc(paper.front)}"/>
-        <path d="M 100 4 L 190 66 L 100 96 Z" fill="${esc(paper.fold)}"/>
-        <path d="M 100 4 L 10 66 L 100 96 Z" fill="${esc(paper.fold)}" opacity="0.75"/>
-      </svg>
-      ${bow}
-    </div>
-  </div>
+  <svg class="bouquet" viewBox="0 0 ${BQ.width} ${BQ.height}" role="img" aria-label="A bouquet">
+    <g stroke="#6f8a63" stroke-width="3" stroke-linecap="round">${tails}</g>
+    ${backPaper}
+    ${leaves}
+    <g stroke="#6f8a63" stroke-width="3.2" fill="none" stroke-linecap="round">${stemLines}</g>
+    ${heads}
+    ${frontPaper}
+    ${bow}
+  </svg>
   ${block.note ? `<p class="body">${esc(block.note)}</p>` : ""}
-  ${meanings.length ? `<p class="meanings">${stems.length} ${stems.length === 1 ? "stem" : "stems"}${greens.length ? ` &middot; ${greens.length} leaves` : ""} &middot; ${esc(meanings.join(" \u00b7 "))}</p>` : ""}
+  ${meanings.length ? `<p class="meanings">${stems.length} ${stems.length === 1 ? "stem" : "stems"}${greens.length ? ` &middot; ${greens.length} ${greens.length === 1 ? "leaf" : "leaves"}` : ""} &middot; ${esc(meanings.join(" \u00b7 "))}</p>` : ""}
 </article>`;
 }
 
@@ -383,12 +420,7 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
   .coupon { border-radius: 14px; padding: 20px 22px; text-align: center; position: relative; }
   .coupon strong { display: block; font-size: 1.2rem; margin: 6px 0; }
   .coupon .flourish { position: absolute; top: 10px; right: 14px; font-size: 1.2rem; }
-  .bouquet { position: relative; display: flex; flex-direction: column; align-items: center; }
-  .bq-row { display: flex; justify-content: center; align-items: flex-end; }
-  .bq-front { margin-top: -26px; }
-  .bq-item { display: inline-block; }
-  .bq-wrap { position: relative; margin-top: -18px; }
-  .bq-bow { position: absolute; left: 50%; top: 30px; transform: translateX(-50%); }
+  .bouquet { display: block; width: 78%; max-width: 330px; height: auto; margin: 4px auto 0; }
   .greens { display: flex; justify-content: center; align-items: flex-end; margin-bottom: -18px; }
   .sprig { display: inline-block; width: 10px; height: 74px; border-radius: 50% 50% 40% 40%; opacity: .9; margin: 0 -2px; }
   .sprig-frond { width: 7px; height: 88px; border-radius: 50% 50% 4px 4px; }

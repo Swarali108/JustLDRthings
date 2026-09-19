@@ -702,44 +702,20 @@
 
 /* --- bouquet arrangement -------------------------------------------------- */
 
-.bouquet-arrangement {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.bq-greens,
-.bq-blooms {
-  align-items: flex-end;
+/* The whole bouquet is one SVG now: stems converge on a single tie point, so it
+   cannot be composed from separate positioned elements. */
+.bouquet-stage {
   display: flex;
   justify-content: center;
+  padding: 4px 0 0;
 }
 
-.bq-blooms { margin-top: -30px; }
-
-.bq-green,
-.bq-bloom {
-  display: inline-block;
-  margin: 0 -10px;
-}
-
-.bq-bloom { filter: drop-shadow(0 6px 8px rgba(45, 21, 37, 0.18)); }
-
-.bq-wrap { margin-top: -20px; position: relative; width: 190px; }
-
-.bq-cone {
+.bouquet-svg {
   display: block;
+  height: auto;
   width: 100%;
-  filter: drop-shadow(0 10px 18px rgba(45, 21, 37, 0.2));
-}
-
-.bq-bow {
-  left: 50%;
-  position: absolute;
-  top: 28%;
-  transform: translateX(-50%);
-  width: 62%;
+  max-width: 330px;
+  filter: drop-shadow(0 12px 22px rgba(45, 21, 37, 0.16));
 }
 
 .flower-art, .leaf-art { display: block; }
