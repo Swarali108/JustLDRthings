@@ -2,10 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { saveNote, saveLetter, type CreateState } from "@/app/create/actions";
-import { PAPER_THEMES, noteSchema, letterSchema } from "@/lib/validation";
+import { noteSchema, letterSchema } from "@/lib/validation";
+import { DEFAULT_PAPER, paperStyle, type PaperChoice } from "@/lib/paper";
+import { ENVELOPES, ENVELOPE_SKINS, SEALS, type EnvelopeId, type Seal } from "@/lib/envelope";
 import { AiAssist } from "@/components/creators/AiAssist";
-import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { DEFAULT_STYLE, styleClasses, tiltStyle, type ItemStyle } from "@/lib/style";
 import { StylePanel } from "@/components/creators/StylePanel";
+import { PaperPicker } from "@/components/creators/PaperPicker";
+import { EnvelopeView } from "@/components/scrapbook/EnvelopeView";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
@@ -29,15 +33,14 @@ export function PaperCreator({
   const [state, formAction, pending] = useActionState(action, initial);
 
   const [body, setBody] = useState("");
-  const [paper, setPaper] = useState<(typeof PAPER_THEMES)[number]>("cream");
+  const [paper, setPaper] = useState<PaperChoice>(DEFAULT_PAPER);
+  const [envelope, setEnvelope] = useState<EnvelopeId>("cream");
+  const [seal, setSeal] = useState<Seal>("♡");
+  const [sealed, setSealed] = useState(kind === "letter");
   const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [guestError, setGuestError] = useState("");
 
-  /**
-   * Guest path: same schema as the server action, run here instead. Nothing is
-   * sent anywhere — the result becomes a link and a file, both built in-page.
-   */
   function onGuestSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -45,7 +48,9 @@ export function PaperCreator({
     const parsed = schema.safeParse({
       title: form.get("title") ?? "",
       body: form.get("body") ?? "",
-      paper: form.get("paper") ?? "cream"
+      paper,
+      style,
+      ...(kind === "letter" ? { sealed, envelope, seal } : {})
     });
 
     if (!parsed.success) {
@@ -57,7 +62,12 @@ export function PaperCreator({
     const item: GuestItem = {
       type: kind,
       title,
-      payload: { body: parsed.data.body, paper: parsed.data.paper, style }
+      payload: {
+        body: parsed.data.body,
+        paper: parsed.data.paper,
+        style,
+        ...(kind === "letter" ? { sealed, envelope, seal } : {})
+      }
     };
 
     setGuestError("");
@@ -68,15 +78,30 @@ export function PaperCreator({
     });
   }
 
-  const formProps = signedIn
-    ? { action: formAction }
-    : { onSubmit: onGuestSubmit, noValidate: false };
+  const formProps = signedIn ? { action: formAction } : { onSubmit: onGuestSubmit };
   const error = signedIn ? state.error : guestError;
+
+  const sheet = (
+    <div className="paper-sheet" style={paperStyle(paper.color, paper.pattern)}>
+      <div className={`paper-inner pattern-${paper.pattern}`}>
+        {body ? body : <span className="paper-placeholder">Your words appear here ♡</span>}
+      </div>
+    </div>
+  );
 
   return (
     <>
       <form {...formProps} className="studio-panel">
         <input type="hidden" name="style" value={JSON.stringify(style)} />
+        <input type="hidden" name="paper" value={JSON.stringify(paper)} />
+        {kind === "letter" ? (
+          <>
+            <input type="hidden" name="sealed" value={sealed ? "1" : ""} />
+            <input type="hidden" name="envelope" value={envelope} />
+            <input type="hidden" name="seal" value={seal} />
+          </>
+        ) : null}
+
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input
@@ -105,18 +130,77 @@ export function PaperCreator({
         </div>
 
         <div className="field">
-          <label htmlFor="paper">Paper</label>
-          <select
-            id="paper"
-            name="paper"
-            value={paper}
-            onChange={(e) => setPaper(e.target.value as typeof paper)}
-          >
-            <option value="cream">Warm cream</option>
-            <option value="blue">Powder blue</option>
-            <option value="plum">Deep plum</option>
-          </select>
+          <label>Paper</label>
+          <PaperPicker value={paper} onChange={setPaper} />
         </div>
+
+        {kind === "letter" ? (
+          <div className="field">
+            <label>Envelope</label>
+            <p style={{ color: "var(--mauve)", fontSize: "0.85rem", margin: "2px 0 0" }}>
+              Send it sealed and they&apos;ll have to open it before they can read
+              it.
+            </p>
+
+            <div className="style-row">
+              <button
+                type="button"
+                className="style-chip"
+                aria-pressed={sealed}
+                onClick={() => setSealed(true)}
+              >
+                Sealed envelope
+              </button>
+              <button
+                type="button"
+                className="style-chip"
+                aria-pressed={!sealed}
+                onClick={() => setSealed(false)}
+              >
+                Open letter
+              </button>
+            </div>
+
+            {sealed ? (
+              <>
+                <span className="style-legend">Envelope colour</span>
+                <div className="style-row">
+                  {ENVELOPES.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="style-chip wrap-chip"
+                      aria-pressed={envelope === id}
+                      onClick={() => setEnvelope(id)}
+                    >
+                      <span
+                        className="wrap-swatch"
+                        style={{ background: ENVELOPE_SKINS[id].body }}
+                      />
+                      {ENVELOPE_SKINS[id].label}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="style-legend">Wax seal</span>
+                <div className="style-row">
+                  {SEALS.map((glyph) => (
+                    <button
+                      key={glyph}
+                      type="button"
+                      className="style-chip sticker-chip"
+                      aria-pressed={seal === glyph}
+                      onClick={() => setSeal(glyph)}
+                      aria-label={`Seal ${glyph}`}
+                    >
+                      {glyph}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="field">
           <label>Dress it up</label>
@@ -146,8 +230,23 @@ export function PaperCreator({
       ) : (
         <div className="studio-panel">
           <p className="eyebrow">Preview</p>
-          <div className={`paper-preview paper-${paper}`}>
-            {body ? body : <span className="paper-placeholder">Your words appear here ♡</span>}
+          <div className={styleClasses(style)}>
+            <div className="styled-block" style={tiltStyle(style)}>
+              {kind === "letter" && sealed ? (
+                // Keyed on the envelope so changing it re-seals the preview —
+                // otherwise you open it once and never see your own choices.
+                <EnvelopeView
+                  key={`${envelope}-${seal}`}
+                  envelope={envelope}
+                  seal={seal}
+                  label="Preview"
+                >
+                  {sheet}
+                </EnvelopeView>
+              ) : (
+                sheet
+              )}
+            </div>
           </div>
         </div>
       )}

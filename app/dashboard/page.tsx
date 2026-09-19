@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app/AppHeader";
 import { CreatedToast } from "@/components/app/Toast";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { CREATIONS, CREATION_BY_TYPE } from "@/lib/content-types";
+import { VISIBLE_CREATIONS, CREATION_BY_TYPE } from "@/lib/content-types";
 import { createPage } from "@/app/page/actions";
 import { deleteContentItem } from "@/app/create/actions";
 import type { ContentItem, Page } from "@/types/db";
@@ -62,7 +62,7 @@ export default async function DashboardPage({
           <h2>What will you create today? ♡</h2>
         </div>
         <div className="creation-grid">
-          {CREATIONS.map((c) => (
+          {VISIBLE_CREATIONS.map((c) => (
             <Link
               key={c.type}
               href={c.href}

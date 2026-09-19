@@ -6,6 +6,9 @@ import {
   RIBBON_BY_ID,
   arrangementMeanings
 } from "@/lib/flowers";
+import { paperStyle, type PaperChoice } from "@/lib/paper";
+import { ENVELOPE_SKINS, type EnvelopeId } from "@/lib/envelope";
+import { COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
 import {
   DOODLE_W,
   DOODLE_H,
@@ -39,7 +42,11 @@ export interface KeepsakeBlock {
   kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle";
   title?: string;
   body?: string;
-  paper?: string;
+  paper?: PaperChoice;
+  sealed?: boolean;
+  envelope?: EnvelopeId;
+  seal?: string;
+  design?: CouponDesign;
   url?: string;
   note?: string;
   couponText?: string;
@@ -71,11 +78,12 @@ function esc(value: string | undefined | null): string {
     .replace(/'/g, "&#39;");
 }
 
-const PAPERS: Record<string, string> = {
-  cream: "background:#f7f3ef;color:#211622;",
-  blue: "background:#e7eef7;color:#211622;",
-  plum: "background:#43182c;color:#f7f3ef;"
-};
+/** The chosen paper as an inline style string for the offline file. */
+function paperCss(paper?: PaperChoice): string {
+  const style = paperStyle(paper?.color ?? "cream", paper?.pattern ?? "plain");
+  const size = style.backgroundSize ? `background-size:${style.backgroundSize};` : "";
+  return `background:${style.background};color:${style.color};${size}`;
+}
 
 /** Decorations, positioned by index to match the app's .sticker-N rules. */
 const STICKER_SPOTS = [
@@ -109,36 +117,79 @@ function blockAttrs(style: ItemStyle): string {
 
 function renderBouquet(block: KeepsakeBlock, style: ItemStyle): string {
   const stems = block.stems || [];
+  const greens = block.greenery || [];
+
+  /** Same fan as the app, so the offline copy matches what was arranged. */
+  function fan(i: number, total: number, spread: number, lift: number): string {
+    const mid = (total - 1) / 2;
+    const offset = total === 1 ? 0 : (i - mid) / mid;
+    return `transform:translateX(${(offset * spread).toFixed(1)}px) translateY(${(Math.abs(offset) * lift).toFixed(1)}px) rotate(${(offset * 16).toFixed(1)}deg);`;
+  }
+
+  const leaves = greens
+    .map((id, i) => {
+      const leaf = GREENERY_BY_ID[id];
+      if (!leaf) return "";
+      return `<span class="bq-item" style="${fan(i, greens.length, 78, 16)}">
+        <svg viewBox="-30 -46 60 92" width="64" height="64">
+          <path d="M 0 44 C -2 18, -1 -8, 0 -42" stroke="${esc(leaf.color)}" stroke-width="2.2" fill="none"/>
+          ${Array.from({ length: leaf.leaves }, (_, k) => {
+            const y = 36 - k * (74 / leaf.leaves);
+            const tone = k % 2 === 0 ? leaf.color : leaf.tone;
+            return `<ellipse cx="11" cy="${y.toFixed(1)}" rx="9" ry="5.5" fill="${esc(tone)}" transform="rotate(-28 11 ${y.toFixed(1)})"/><ellipse cx="-11" cy="${(y - 4).toFixed(1)}" rx="9" ry="5.5" fill="${esc(tone)}" transform="rotate(28 -11 ${(y - 4).toFixed(1)})"/>`;
+          }).join("")}
+        </svg>
+      </span>`;
+    })
+    .join("");
+
   const blooms = stems
     .map((id, i) => {
       const flower = FLOWER_BY_ID[id];
       if (!flower) return "";
-      const size = 34 + ((i * 7) % 3) * 6;
-      const lift = ((i * 5) % 4) * 5;
-      return `<span class="bloom" style="background:${esc(flower.color)};height:${size}px;width:${size}px;margin-bottom:${lift}px;"></span>`;
-    })
-    .join("");
-  const greens = (block.greenery || [])
-    .map((id, i) => {
-      const sprig = GREENERY_BY_ID[id];
-      if (!sprig) return "";
-      const lean = (i - ((block.greenery || []).length - 1) / 2) * 16;
-      return `<span class="sprig sprig-${esc(sprig.shape)}" style="background:${esc(sprig.color)};transform:rotate(${lean}deg);"></span>`;
+      const size = 46 + ((i * 5) % 3) * 9;
+      const petals = Array.from({ length: flower.petals }, (_, k) =>
+        `<ellipse cx="0" cy="-20" rx="11" ry="19" fill="${esc(flower.color)}" transform="rotate(${((360 / flower.petals) * k).toFixed(1)})"/>`
+      ).join("");
+      return `<span class="bq-item" style="${fan(i, stems.length, 62, 22)}">
+        <svg viewBox="-50 -50 100 100" width="${size}" height="${size}">
+          ${petals}
+          <circle r="9" fill="${esc(flower.center)}"/>
+        </svg>
+      </span>`;
     })
     .join("");
 
-  const paper = WRAP_BY_ID[block.wrap || "cream"] || WRAP_BY_ID.cream;
+  const paper = WRAP_BY_ID[block.wrap || "peach"] || WRAP_BY_ID.peach;
   const tie = RIBBON_BY_ID[block.ribbon || "none"] || RIBBON_BY_ID.none;
-  const ribbon =
-    tie.id !== "none" ? `<span class="ribbon" style="background:${esc(tie.color)};"></span>` : "";
+  const bow =
+    tie.id !== "none"
+      ? `<svg class="bq-bow" viewBox="0 0 120 50" width="110">
+      <path d="M 58 25 C 34 4, 6 8, 10 25 C 6 42, 34 46, 58 25 Z" fill="${esc(tie.color)}"/>
+      <path d="M 62 25 C 86 4, 114 8, 110 25 C 114 42, 86 46, 62 25 Z" fill="${esc(tie.color)}"/>
+      <rect x="54" y="18" width="12" height="15" rx="4" fill="${esc(tie.shade)}"/>
+    </svg>`
+      : "";
 
-  const meanings = arrangementMeanings(stems, block.greenery || []);
+  const meanings = arrangementMeanings(stems, greens);
+
   return `<article class="block" style="${blockAttrs(style)}">
   ${renderStickers(style)}
   ${block.title ? `<h3>${esc(block.title)}</h3>` : ""}
-  <div class="bouquet">${greens ? `<div class="greens">${greens}</div>` : ""}<div class="blooms">${blooms}</div><div class="cone" style="background:${esc(paper.background)};">${ribbon}</div></div>
+  <div class="bouquet">
+    <div class="bq-row">${leaves}</div>
+    <div class="bq-row bq-front">${blooms}</div>
+    <div class="bq-wrap">
+      <svg viewBox="0 0 200 210" width="180">
+        <path d="M 100 4 L 190 66 L 132 206 L 68 206 L 10 66 Z" fill="${esc(paper.front)}"/>
+        <path d="M 100 4 L 190 66 L 100 96 Z" fill="${esc(paper.fold)}"/>
+        <path d="M 100 4 L 10 66 L 100 96 Z" fill="${esc(paper.fold)}" opacity="0.75"/>
+      </svg>
+      ${bow}
+    </div>
+  </div>
   ${block.note ? `<p class="body">${esc(block.note)}</p>` : ""}
-  ${meanings.length ? `<p class="meanings">${stems.length} ${stems.length === 1 ? "stem" : "stems"} &middot; ${esc(meanings.join(" \u00b7 "))}</p>` : ""}
+  ${meanings.length ? `<p class="meanings">${stems.length} ${stems.length === 1 ? "stem" : "stems"}${greens.length ? ` &middot; ${greens.length} leaves` : ""} &middot; ${esc(meanings.join(" \u00b7 "))}</p>` : ""}
 </article>`;
 }
 
@@ -191,12 +242,32 @@ function renderBlock(block: KeepsakeBlock): string {
   if (block.kind === "collage") return renderCollage(block, style);
 
   switch (block.kind) {
-    case "paper":
-      return `<article class="block" style="${PAPERS[block.paper || "cream"] || PAPERS.cream}${blockAttrs(style)}">
+    case "paper": {
+      // The keepsake is a static file, so a sealed letter cannot be "clicked
+      // open" — the envelope is drawn above the letter instead, which keeps the
+      // choice visible without hiding the words behind an interaction the file
+      // cannot perform.
+      const envelope = block.sealed
+        ? (() => {
+            const skin = ENVELOPE_SKINS[block.envelope || "cream"] || ENVELOPE_SKINS.cream;
+            return `<svg class="env" viewBox="0 0 320 210" role="presentation">
+      <rect x="4" y="30" width="312" height="176" rx="10" fill="${esc(skin.body)}"/>
+      <path d="M 4 34 L 160 134 L 316 34 L 316 30 A 10 10 0 0 0 306 20 L 14 20 A 10 10 0 0 0 4 30 Z" fill="${esc(skin.flap)}"/>
+      <circle cx="160" cy="118" r="21" fill="${esc(skin.seal)}"/>
+      <text x="160" y="126" text-anchor="middle" font-size="21" fill="${esc(skin.body)}">${esc(block.seal || "\u2661")}</text>
+    </svg>`;
+          })()
+        : "";
+
+      return `<article class="block" style="${blockAttrs(style)}">
   ${renderStickers(style)}
-  ${block.title ? `<h3>${esc(block.title)}</h3>` : ""}
-  <p class="body">${esc(block.body)}</p>
+  ${envelope}
+  <div class="sheet" style="${paperCss(block.paper)}">
+    ${block.title ? `<h3>${esc(block.title)}</h3>` : ""}
+    <p class="body">${esc(block.body)}</p>
+  </div>
 </article>`;
+    }
 
     case "song":
       // Only http(s) reaches here (the creator validates the host), but the
@@ -211,14 +282,19 @@ function renderBlock(block: KeepsakeBlock): string {
   </div>
 </article>`;
 
-    case "coupon":
-      return `<article class="block coupon" style="${blockAttrs(style)}">
+    case "coupon": {
+      const skin = COUPON_SKINS[block.design || "ticket"] || COUPON_SKINS.ticket;
+      return `<article class="block" style="${blockAttrs(style)}">
   ${renderStickers(style)}
-  <span class="tag">Love Coupon</span>
-  <strong>${esc(block.couponText || block.title)}</strong>
-  <span class="dash"></span>
-  <small>${block.expiresAt ? `Good until ${esc(new Date(block.expiresAt).toLocaleDateString())}` : "Redeem any time &#9825;"}</small>
+  <div class="coupon" style="background:${esc(skin.bg)};color:${esc(skin.ink)};border:2px ${skin.edge === "solid" ? "solid" : "dashed"} ${esc(skin.border)};">
+    <span class="tag" style="color:${esc(skin.accent)};border-color:${esc(skin.border)};">${esc(skin.tag)}</span>
+    ${skin.flourish ? `<span class="flourish" style="color:${esc(skin.accent)};">${esc(skin.flourish)}</span>` : ""}
+    <strong>${esc(block.couponText || block.title)}</strong>
+    <span class="dash" style="border-color:${esc(skin.border)};"></span>
+    <small style="color:${esc(skin.accent)};">${block.expiresAt ? `Good until ${esc(new Date(block.expiresAt).toLocaleDateString())}` : "Redeem any time &#9825;"}</small>
+  </div>
 </article>`;
+    }
 
     case "media": {
       const media = block.mediaDataUrl
@@ -301,6 +377,18 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
     height: 120px; width: 190px; margin-top: -14px;
   }
   .meanings { font-size: .82rem; opacity: .75; margin: 12px 0 0; font-style: italic; }
+  .sheet { border-radius: 12px; padding: 20px 22px; }
+  .sheet h3 { margin: 0 0 8px; }
+  .env { display: block; width: 62%; margin: 0 auto 14px; }
+  .coupon { border-radius: 14px; padding: 20px 22px; text-align: center; position: relative; }
+  .coupon strong { display: block; font-size: 1.2rem; margin: 6px 0; }
+  .coupon .flourish { position: absolute; top: 10px; right: 14px; font-size: 1.2rem; }
+  .bouquet { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .bq-row { display: flex; justify-content: center; align-items: flex-end; }
+  .bq-front { margin-top: -26px; }
+  .bq-item { display: inline-block; }
+  .bq-wrap { position: relative; margin-top: -18px; }
+  .bq-bow { position: absolute; left: 50%; top: 30px; transform: translateX(-50%); }
   .greens { display: flex; justify-content: center; align-items: flex-end; margin-bottom: -18px; }
   .sprig { display: inline-block; width: 10px; height: 74px; border-radius: 50% 50% 40% 40%; opacity: .9; margin: 0 -2px; }
   .sprig-frond { width: 7px; height: 88px; border-radius: 50% 50% 4px 4px; }
@@ -361,7 +449,16 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
   switch (item.type) {
     case "note":
     case "letter":
-      return { kind: "paper", title: item.title, body: p.body, paper: p.paper, style };
+      return {
+        kind: "paper",
+        title: item.title,
+        body: p.body,
+        paper: p.paper,
+        sealed: p.sealed,
+        envelope: p.envelope,
+        seal: p.seal,
+        style
+      };
     case "song":
       return { kind: "song", title: item.title, url: p.url, note: p.note, style };
     case "bouquet":
@@ -383,6 +480,7 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
         title: item.title,
         couponText: item.coupon?.coupon_text,
         expiresAt: item.coupon?.expires_at ?? null,
+        design: p.design,
         style
       };
   }

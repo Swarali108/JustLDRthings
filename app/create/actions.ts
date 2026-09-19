@@ -36,6 +36,15 @@ function toIso(local: string): string | null {
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+/** Paper arrives as JSON in a hidden field; anything malformed falls back. */
+function parseJsonField(raw: FormDataEntryValue | null): unknown {
+  try {
+    return JSON.parse(String(raw || "null"));
+  } catch {
+    return null;
+  }
+}
+
 /** Style arrives as a JSON string in a hidden field; a bad one falls back to defaults. */
 function parseStyle(raw: FormDataEntryValue | null) {
   try {
@@ -51,7 +60,7 @@ export async function saveNote(_prev: CreateState, formData: FormData): Promise<
   const parsed = noteSchema.safeParse({
     title: formData.get("title") ?? "",
     body: formData.get("body") ?? "",
-    paper: formData.get("paper") ?? "cream",
+    paper: parseJsonField(formData.get("paper")),
     style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -72,7 +81,10 @@ export async function saveLetter(_prev: CreateState, formData: FormData): Promis
   const parsed = letterSchema.safeParse({
     title: formData.get("title") ?? "",
     body: formData.get("body") ?? "",
-    paper: formData.get("paper") ?? "cream",
+    paper: parseJsonField(formData.get("paper")),
+    sealed: Boolean(formData.get("sealed")),
+    envelope: formData.get("envelope") || undefined,
+    seal: formData.get("seal") || undefined,
     style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -82,7 +94,14 @@ export async function saveLetter(_prev: CreateState, formData: FormData): Promis
     owner_id: user.id,
     type: "letter" as ContentType,
     title: parsed.data.title || "A letter",
-    payload_json: { body: parsed.data.body, paper: parsed.data.paper }
+    payload_json: {
+      body: parsed.data.body,
+      paper: parsed.data.paper,
+      sealed: parsed.data.sealed,
+      envelope: parsed.data.envelope,
+      seal: parsed.data.seal,
+      style: parsed.data.style
+    }
   });
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
@@ -122,6 +141,7 @@ export async function saveCoupon(_prev: CreateState, formData: FormData): Promis
     title: formData.get("title") ?? "",
     coupon_text: formData.get("coupon_text") ?? "",
     expires_at: formData.get("expires_at") ?? "",
+    design: formData.get("design") || undefined,
     style: parseStyle(formData.get("style"))
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -133,7 +153,7 @@ export async function saveCoupon(_prev: CreateState, formData: FormData): Promis
       owner_id: user.id,
       type: "coupon" as ContentType,
       title: parsed.data.title || "A love coupon",
-      payload_json: { style: parsed.data.style }
+      payload_json: { style: parsed.data.style, design: parsed.data.design }
     })
     .select("id")
     .single();

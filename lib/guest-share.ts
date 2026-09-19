@@ -10,6 +10,9 @@ import {
   RIBBON_IDS
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
+import { paperChoiceSchema } from "@/lib/paper";
+import { envelopeSchema, sealSchema } from "@/lib/envelope";
+import { couponDesignSchema } from "@/lib/coupon-designs";
 import type { RenderItem } from "@/components/scrapbook/ItemBlock";
 
 /**
@@ -47,7 +50,16 @@ const guestItemSchema = z.object({
   payload: z
     .object({
       body: z.string().max(8000).optional(),
-      paper: z.enum(["cream", "blue", "plum"]).optional(),
+      // Old links carry a bare colour string; new ones an object. Accept both.
+      paper: z
+        .preprocess((v) => (typeof v === "string" ? { color: v, pattern: "plain" } : v), paperChoiceSchema)
+        .optional(),
+      // Letter: sealed in an envelope the recipient opens.
+      sealed: z.boolean().optional(),
+      envelope: envelopeSchema.optional(),
+      seal: sealSchema.optional(),
+      // Coupon design.
+      design: couponDesignSchema.optional(),
       url: z
         .string()
         .max(2000)

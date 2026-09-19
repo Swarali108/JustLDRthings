@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CREATIONS } from "@/lib/content-types";
+import { VISIBLE_CREATIONS } from "@/lib/content-types";
 import { Icon, type IconName } from "@/components/ui/Icon";
 
 export default function LandingPage() {
@@ -108,7 +108,7 @@ export default function LandingPage() {
           </p>
         </div>
         <div className="creation-grid">
-          {CREATIONS.map((c) => (
+          {VISIBLE_CREATIONS.map((c) => (
             <Link
               key={c.type}
               href={c.href}

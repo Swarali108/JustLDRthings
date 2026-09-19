@@ -5,6 +5,11 @@ import { DoodleView } from "@/components/scrapbook/DoodleView";
 import { doodleSchema } from "@/lib/doodle";
 import { arrangementMeanings } from "@/lib/flowers";
 import { readStyle, styleClasses, tiltStyle } from "@/lib/style";
+import { readPaper, paperStyle } from "@/lib/paper";
+import { ENVELOPES, type EnvelopeId } from "@/lib/envelope";
+import { COUPON_DESIGNS, type CouponDesign } from "@/lib/coupon-designs";
+import { EnvelopeView } from "@/components/scrapbook/EnvelopeView";
+import { CouponView } from "@/components/scrapbook/CouponView";
 
 export interface RenderMedia {
   url: string;
@@ -21,9 +26,11 @@ export interface RenderItem {
   coupon: SharedCoupon | null;
 }
 
-function paperClass(payload: Record<string, unknown>): string {
-  const p = typeof payload.paper === "string" ? payload.paper : "cream";
-  return `paper-${p}`;
+/** Narrow an untrusted string to a known id, or fall back. */
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : fallback;
 }
 
 /** Decorations sit in their own absolutely-positioned layer, above the card. */
@@ -75,14 +82,38 @@ function Body({
 }) {
   switch (item.type) {
     case "note":
-    case "letter":
+    case "letter": {
+      const paper = readPaper(item.payload);
+      const sheet = (
+        <div className="paper-sheet" style={paperStyle(paper.color, paper.pattern)}>
+          <div className={`paper-inner pattern-${paper.pattern}`}>
+            {item.title ? <h3 className="block-title">{item.title}</h3> : null}
+            <p className="block-body">{p.body}</p>
+          </div>
+        </div>
+      );
+
+      // A sealed letter arrives closed; the recipient clicks to open it. The
+      // sheet is passed as children, so it stays server-rendered.
+      const sealed = item.type === "letter" && Boolean(item.payload.sealed);
+
       return (
-        <article className={`block block-paper styled-block ${paperClass(item.payload)}`}>
+        <article className="block block-paper styled-block">
           <Stickers stickers={stickers} />
-          {item.title ? <h3 className="block-title">{item.title}</h3> : null}
-          <p className="block-body">{p.body}</p>
+          {sealed ? (
+            <EnvelopeView
+              envelope={oneOf<EnvelopeId>(item.payload.envelope, ENVELOPES, "cream")}
+              seal={typeof p.seal === "string" ? p.seal : "\u2661"}
+              label={item.title}
+            >
+              {sheet}
+            </EnvelopeView>
+          ) : (
+            sheet
+          )}
         </article>
       );
+    }
 
     case "song":
       return (
@@ -103,10 +134,13 @@ function Body({
       return (
         <article className="block block-coupon styled-block">
           <Stickers stickers={stickers} />
-          <span className="coupon-tag">Love Coupon</span>
-          <strong>{item.coupon?.coupon_text || item.title}</strong>
-          <span className="coupon-dash" />
-          <CouponRedeem coupon={item.coupon} token={token} />
+          <CouponView
+            design={oneOf<CouponDesign>(item.payload.design, COUPON_DESIGNS, "ticket")}
+            text={item.coupon?.coupon_text || item.title}
+            expiresAt={item.coupon?.expires_at ?? null}
+          >
+            <CouponRedeem coupon={item.coupon} token={token} />
+          </CouponView>
         </article>
       );
 

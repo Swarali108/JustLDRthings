@@ -1,36 +1,48 @@
 /**
- * The flowers you can put in a bouquet.
+ * The bouquet: flowers, filler leaves, wrapping.
  *
- * Each carries a meaning from the Victorian language of flowers — that is the
- * point of the creator. Picking "forget-me-not" for someone far away says
- * something a generic blue circle does not, and the meaning is shown to the
- * recipient underneath the bouquet.
+ * Every id is a closed set — these travel in a guest link and become colours and
+ * class names, so they are looked up, never interpolated raw. Renaming an id
+ * orphans every link already sent; only ever add.
  *
- * `id` is what gets stored and what travels in a guest link, so it is a closed
- * set and the labels/colours are looked up from it at render time. Renaming an
- * id would orphan every link already sent; add new ones instead.
+ * Flowers are drawn as SVG from a small spec (petal count, shape, colours)
+ * rather than shipped as images: a bouquet then costs a handful of ids in a link
+ * instead of megabytes of artwork, and it stays sharp at any size and in print.
  */
+
+export type PetalShape = "round" | "pointed" | "narrow" | "star" | "ruffled" | "rosette";
+
 export interface Flower {
   id: string;
   label: string;
   meaning: string;
-  /** Petal colour, and a slightly deeper tone for the inner shadow. */
+  /** Outer petal colour. */
   color: string;
+  /** Inner petal wash, blended toward the centre. */
+  inner: string;
+  /** The eye of the flower. */
+  center: string;
+  petals: number;
+  shape: PetalShape;
 }
 
+/** The fifteen blooms, matching the reference sheet. */
 export const FLOWERS: Flower[] = [
-  { id: "rose", label: "Rose", meaning: "deep love", color: "#c2415f" },
-  { id: "forgetmenot", label: "Forget-me-not", meaning: "true love, remembrance", color: "#6d9bd1" },
-  { id: "tulip", label: "Tulip", meaning: "a declaration", color: "#e0736a" },
-  { id: "peony", label: "Peony", meaning: "a happy life together", color: "#eaa1b8" },
-  { id: "lavender", label: "Lavender", meaning: "devotion", color: "#9b8ac4" },
-  { id: "daisy", label: "Daisy", meaning: "loyal love", color: "#f2e7c9" },
-  { id: "sunflower", label: "Sunflower", meaning: "adoration", color: "#e8b53d" },
-  { id: "hydrangea", label: "Hydrangea", meaning: "gratitude", color: "#8fb8d9" },
-  { id: "camellia", label: "Camellia", meaning: "you're always on my mind", color: "#d76a93" },
-  { id: "jasmine", label: "Jasmine", meaning: "sweetness, longing", color: "#f6f1e4" },
-  { id: "poppy", label: "Poppy", meaning: "consolation, rest", color: "#d64545" },
-  { id: "bluebell", label: "Bluebell", meaning: "constancy", color: "#7b7fd4" }
+  { id: "cosmos-pink",  label: "Pink cosmos",   meaning: "a peaceful love",        color: "#f0aec4", inner: "#fdf0f4", center: "#e8b53d", petals: 5,  shape: "round" },
+  { id: "daisy-white",  label: "White daisy",   meaning: "loyal love",             color: "#fcfaf8", inner: "#eef2f7", center: "#e8b53d", petals: 11, shape: "narrow" },
+  { id: "anemone",      label: "Anemone",       meaning: "anticipation",           color: "#8b86cf", inner: "#b6b2e0", center: "#3b2f4a", petals: 6,  shape: "round" },
+  { id: "cosmos-coral", label: "Coral cosmos",  meaning: "warmth",                 color: "#e08276", inner: "#f3c4bd", center: "#a8823e", petals: 8,  shape: "pointed" },
+  { id: "plumeria",     label: "Plumeria",      meaning: "new beginnings",         color: "#f2569b", inner: "#fbc16a", center: "#f7d488", petals: 5,  shape: "ruffled" },
+  { id: "sunflower",    label: "Sunflower",     meaning: "adoration",              color: "#f0b429", inner: "#f7d06a", center: "#5b4420", petals: 16, shape: "pointed" },
+  { id: "hibiscus-ice", label: "Ice hibiscus",  meaning: "delicate beauty",        color: "#c8d6e8", inner: "#fcfaf8", center: "#7f93ad", petals: 6,  shape: "ruffled" },
+  { id: "cornflower",   label: "Cornflower",    meaning: "hope in waiting",        color: "#3f61ab", inner: "#8fa8d8", center: "#e08a3c", petals: 7,  shape: "round" },
+  { id: "wildrose",     label: "Wild rose",     meaning: "a love that endures",    color: "#e2515f", inner: "#f4a0a0", center: "#efd06a", petals: 6,  shape: "round" },
+  { id: "gerbera-gold", label: "Gold gerbera",  meaning: "cheerfulness",           color: "#e0a02a", inner: "#eec758", center: "#8a5a1c", petals: 14, shape: "narrow" },
+  { id: "forgetmenot",  label: "Forget-me-not", meaning: "true love, remembrance", color: "#a9d2ef", inner: "#e4f2fb", center: "#f6f0d8", petals: 5,  shape: "round" },
+  { id: "starflower",   label: "Star flower",   meaning: "a wish kept",            color: "#ee8b3f", inner: "#f6c07a", center: "#c66a26", petals: 7,  shape: "star" },
+  { id: "succulent",    label: "Succulent",     meaning: "steady, enduring",       color: "#7fae95", inner: "#a9c9b2", center: "#5d8a72", petals: 9,  shape: "rosette" },
+  { id: "plumbago",     label: "Plumbago",      meaning: "quiet affection",        color: "#8f9fe0", inner: "#c6cdf2", center: "#f0f2fb", petals: 5,  shape: "round" },
+  { id: "osteospermum", label: "Lilac daisy",   meaning: "a fresh start",          color: "#c3a7d9", inner: "#e6d9f0", center: "#4a3357", petals: 13, shape: "narrow" }
 ];
 
 export const FLOWER_BY_ID: Record<string, Flower> = FLOWERS.reduce(
@@ -43,45 +55,41 @@ export const FLOWER_BY_ID: Record<string, Flower> = FLOWERS.reduce(
 
 export const FLOWER_IDS = FLOWERS.map((f) => f.id) as [string, ...string[]];
 
-export const MAX_STEMS = 9;
-
-/** Unique meanings for the picked stems, in pick order, for the caption line. */
-export function bouquetMeanings(ids: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const id of ids) {
-    const flower = FLOWER_BY_ID[id];
-    if (flower && !seen.has(flower.meaning)) {
-      seen.add(flower.meaning);
-      out.push(flower.meaning);
-    }
-  }
-  return out;
-}
+/** Per the brief: fifteen stems in a bouquet, and up to fifteen of any one. */
+export const MAX_STEMS = 15;
+export const MAX_PER_FLOWER = 15;
 
 // ---------------------------------------------------------------------------
-// The rest of the bouquet: greenery, wrapping paper, ribbon.
-//
-// Same closed-set rule as FLOWERS — these ids travel in a guest link and become
-// colours and class names, so they are looked up, never interpolated raw.
+// Filler leaves
 // ---------------------------------------------------------------------------
+
+export type LeafShape = "sprig" | "round" | "seeded" | "willow" | "broad";
 
 export interface Greenery {
   id: string;
   label: string;
   meaning: string;
   color: string;
-  /** How the sprig is drawn: a leafy stem, a frond, or a spray of tiny buds. */
-  shape: "leaf" | "frond" | "spray";
+  /** Second tone, for the leaves further along the stem. */
+  tone: string;
+  shape: LeafShape;
+  /** Leaf pairs along the stem. */
+  leaves: number;
 }
 
 export const GREENERY: Greenery[] = [
-  { id: "eucalyptus", label: "Eucalyptus", meaning: "protection", color: "#8ba888", shape: "leaf" },
-  { id: "fern", label: "Fern", meaning: "sincerity", color: "#5f7f5a", shape: "frond" },
-  { id: "ivy", label: "Ivy", meaning: "holding on", color: "#4f6b46", shape: "leaf" },
-  { id: "babysbreath", label: "Baby's breath", meaning: "everlasting", color: "#f3efe6", shape: "spray" },
-  { id: "olive", label: "Olive branch", meaning: "peace", color: "#7d8b5f", shape: "frond" },
-  { id: "wheat", label: "Wheat", meaning: "abundance", color: "#c9a961", shape: "spray" }
+  { id: "olive",       label: "Olive",         meaning: "peace",          color: "#9aa870", tone: "#b4bf8c", shape: "sprig",  leaves: 6 },
+  { id: "eucalyptus",  label: "Eucalyptus",    meaning: "protection",     color: "#5f7f6b", tone: "#7d9b88", shape: "round",  leaves: 7 },
+  { id: "bay",         label: "Bay laurel",    meaning: "steadfastness",  color: "#7c9270", tone: "#96a988", shape: "sprig",  leaves: 5 },
+  { id: "magnolia",    label: "Magnolia leaf", meaning: "dignity",        color: "#5c7f55", tone: "#7fa073", shape: "broad",  leaves: 4 },
+  { id: "babyeuc",     label: "Baby eucalypt", meaning: "everlasting",    color: "#8fae8c", tone: "#aec7a9", shape: "round",  leaves: 8 },
+  { id: "autumnleaf",  label: "Autumn branch", meaning: "time together",  color: "#c08d4d", tone: "#d8ab6e", shape: "sprig",  leaves: 6 },
+  { id: "budsprig",    label: "Bud sprig",     meaning: "something new",  color: "#a9bf95", tone: "#c3d4b2", shape: "seeded", leaves: 10 },
+  { id: "silverdollar",label: "Silver dollar", meaning: "constancy",      color: "#8aa3a8", tone: "#a9bec2", shape: "round",  leaves: 6 },
+  { id: "ruscus",      label: "Ruscus",        meaning: "quiet strength", color: "#3f5f41", tone: "#5a7d5c", shape: "sprig",  leaves: 9 },
+  { id: "laurelbroad", label: "Broad laurel",  meaning: "honour",         color: "#6d8f5f", tone: "#8aa87a", shape: "broad",  leaves: 3 },
+  { id: "seededeuc",   label: "Seeded eucalypt", meaning: "abundance",    color: "#7d9482", tone: "#9db0a1", shape: "seeded", leaves: 9 },
+  { id: "willow",      label: "Willow",        meaning: "gentleness",     color: "#6f8a63", tone: "#8fa683", shape: "willow", leaves: 8 }
 ];
 
 export const GREENERY_BY_ID: Record<string, Greenery> = GREENERY.reduce(
@@ -93,53 +101,34 @@ export const GREENERY_BY_ID: Record<string, Greenery> = GREENERY.reduce(
 );
 
 export const GREENERY_IDS = GREENERY.map((g) => g.id) as [string, ...string[]];
-export const MAX_GREENERY = 6;
+
+/** Per the brief: twelve filler leaves per bouquet. */
+export const MAX_GREENERY = 12;
+export const MAX_PER_LEAF = 12;
+
+// ---------------------------------------------------------------------------
+// Wrapping and ribbon
+// ---------------------------------------------------------------------------
 
 export interface Wrap {
   id: string;
   label: string;
-  /** CSS background for the cone. Literal values so the keepsake can reuse them. */
-  background: string;
+  /** Front face of the folded cone. */
+  front: string;
+  /** The turned-back collar, a shade darker. */
+  fold: string;
   ink: string;
 }
 
 export const WRAPS: Wrap[] = [
-  {
-    id: "kraft",
-    label: "Brown kraft",
-    background: "repeating-linear-gradient(110deg, rgba(120,85,50,.10) 0 12px, #d8bc95 13px 26px)",
-    ink: "#5a4228"
-  },
-  {
-    id: "lace",
-    label: "Lace",
-    background: "radial-gradient(circle at 6px 6px, rgba(140,101,124,.18) 2px, transparent 3px) 0 0/14px 14px, #fcfaf8",
-    ink: "#6a2147"
-  },
-  {
-    id: "tissue",
-    label: "Pink tissue",
-    background: "linear-gradient(135deg, #f7dfe4 0%, #f2c9d3 50%, #f7dfe4 100%)",
-    ink: "#8c3a58"
-  },
-  {
-    id: "news",
-    label: "Newspaper",
-    background: "repeating-linear-gradient(0deg, rgba(40,40,40,.16) 0 1px, transparent 1px 5px), #efe9dd",
-    ink: "#2f2f2f"
-  },
-  {
-    id: "cream",
-    label: "Plain cream",
-    background: "repeating-linear-gradient(110deg, rgba(106,33,71,.08) 0 12px, rgba(252,250,248,.95) 13px 26px), #f7f3ef",
-    ink: "#6a2147"
-  },
-  {
-    id: "plum",
-    label: "Plum satin",
-    background: "linear-gradient(135deg, #5c2340 0%, #7d3157 45%, #4a1b33 100%)",
-    ink: "#f4e9d8"
-  }
+  { id: "peach",  label: "Peach kraft", front: "#f3d9c4", fold: "#e5c0a5", ink: "#7a5237" },
+  { id: "cream",  label: "Soft cream",  front: "#f6efe4", fold: "#e7dac7", ink: "#6a5540" },
+  { id: "blush",  label: "Blush",       front: "#f5d8dc", fold: "#e8bcc4", ink: "#8c3a58" },
+  { id: "sage",   label: "Sage",        front: "#dbe5d6", fold: "#c2d2bd", ink: "#4f6b46" },
+  { id: "kraft",  label: "Brown kraft", front: "#dcbd96", fold: "#c6a179", ink: "#5a4228" },
+  { id: "plum",   label: "Plum satin",  front: "#7d3157", fold: "#5c2340", ink: "#f4e9d8" },
+  { id: "mist",   label: "Powder blue", front: "#d8e3ef", fold: "#bdcee0", ink: "#356a89" },
+  { id: "noir",   label: "Charcoal",    front: "#4a4a52", fold: "#35353c", ink: "#f0ece6" }
 ];
 
 export const WRAP_BY_ID: Record<string, Wrap> = WRAPS.reduce(
@@ -156,15 +145,17 @@ export interface Ribbon {
   id: string;
   label: string;
   color: string;
+  shade: string;
 }
 
 export const RIBBONS: Ribbon[] = [
-  { id: "none", label: "No ribbon", color: "transparent" },
-  { id: "cream", label: "Cream", color: "#e8dcc8" },
-  { id: "blush", label: "Blush", color: "#e3a7b5" },
-  { id: "sage", label: "Sage", color: "#a3b89b" },
-  { id: "plum", label: "Plum", color: "#6a2147" },
-  { id: "gold", label: "Gold", color: "#d4af62" }
+  { id: "none",  label: "No ribbon", color: "transparent", shade: "transparent" },
+  { id: "peach", label: "Peach",     color: "#e8b198", shade: "#d1937a" },
+  { id: "cream", label: "Cream",     color: "#e8dcc8", shade: "#cfc0a8" },
+  { id: "blush", label: "Blush",     color: "#e3a7b5", shade: "#c98a9a" },
+  { id: "sage",  label: "Sage",      color: "#a3b89b", shade: "#87a07e" },
+  { id: "plum",  label: "Plum",      color: "#6a2147", shade: "#4d1633" },
+  { id: "gold",  label: "Gold",      color: "#d4af62", shade: "#b8934a" }
 ];
 
 export const RIBBON_BY_ID: Record<string, Ribbon> = RIBBONS.reduce(
@@ -176,6 +167,31 @@ export const RIBBON_BY_ID: Record<string, Ribbon> = RIBBONS.reduce(
 );
 
 export const RIBBON_IDS = RIBBONS.map((r) => r.id) as [string, ...string[]];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Count how many of each id appear, for the +/- steppers. */
+export function countOf(list: string[], id: string): number {
+  let n = 0;
+  for (const item of list) if (item === id) n++;
+  return n;
+}
+
+/** Add one, respecting both the per-kind cap and the bouquet total. */
+export function addOne(list: string[], id: string, perKind: number, total: number): string[] {
+  if (list.length >= total) return list;
+  if (countOf(list, id) >= perKind) return list;
+  return [...list, id];
+}
+
+/** Remove the last of that id. */
+export function removeOne(list: string[], id: string): string[] {
+  const idx = list.lastIndexOf(id);
+  if (idx === -1) return list;
+  return list.filter((_, i) => i !== idx);
+}
 
 /** Meanings for flowers AND greenery, de-duplicated, in pick order. */
 export function arrangementMeanings(stems: string[], greenery: string[] = []): string[] {

@@ -8,22 +8,39 @@ import {
   RIBBON_IDS
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
+import { paperChoiceSchema } from "@/lib/paper";
+import { envelopeSchema, sealSchema } from "@/lib/envelope";
+import { couponDesignSchema } from "@/lib/coupon-designs";
 import { styleSchema } from "@/lib/style";
 
 // Paper themes shared by notes and letters.
 export const PAPER_THEMES = ["cream", "blue", "plum"] as const;
 
+/**
+ * Paper arrives either as the new {color, pattern} object or, from links and
+ * rows created before patterns existed, as a bare colour string. Both must keep
+ * working, so the old shape is promoted rather than rejected.
+ */
+const paperField = z.preprocess(
+  (v) => (typeof v === "string" ? { color: v, pattern: "plain" } : v),
+  paperChoiceSchema
+).default({ color: "cream", pattern: "plain" });
+
 export const noteSchema = z.object({
   title: z.string().trim().max(80).optional().default(""),
   body: z.string().trim().min(1, "Write a little something.").max(600),
-  paper: z.enum(PAPER_THEMES).default("cream"),
+  paper: paperField,
   style: styleSchema.optional()
 });
 
 export const letterSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
   body: z.string().trim().min(1, "Your letter is empty.").max(8000),
-  paper: z.enum(PAPER_THEMES).default("cream"),
+  paper: paperField,
+  // A sealed letter arrives as a closed envelope the recipient clicks to open.
+  sealed: z.coerce.boolean().optional().default(false),
+  envelope: envelopeSchema.optional(),
+  seal: sealSchema.optional(),
   style: styleSchema.optional()
 });
 
@@ -62,6 +79,7 @@ export const couponSchema = z.object({
   coupon_text: z.string().trim().min(1, "What are you promising?").max(200),
   // datetime-local value (no timezone) or empty.
   expires_at: z.string().trim().optional().default(""),
+  design: couponDesignSchema.optional(),
   style: styleSchema.optional()
 });
 
@@ -82,8 +100,8 @@ export const bouquetSchema = z.object({
   // Stems are stored as flower ids, in pick order -- the arrangement IS the order.
   stems: z.array(z.enum(FLOWER_IDS)).min(1, "Pick at least one flower.").max(MAX_STEMS),
   greenery: z.array(z.enum(GREENERY_IDS)).max(MAX_GREENERY).optional().default([]),
-  wrap: z.enum(WRAP_IDS).optional().default("cream"),
-  ribbon: z.enum(RIBBON_IDS).optional().default("none"),
+  wrap: z.enum(WRAP_IDS).optional().default("peach"),
+  ribbon: z.enum(RIBBON_IDS).optional().default("peach"),
   note: z.string().trim().max(400).optional().default(""),
   style: styleSchema.optional()
 });

@@ -9,6 +9,12 @@ export interface CreationMeta {
   icon: string;
   /** Kept for future unbuilt types; everything listed is currently built. */
   ready: boolean;
+  /**
+   * Built, but deliberately not offered right now. The creator and its route
+   * still exist, so bringing one back is a one-line change rather than a
+   * rebuild -- which matters, because these have been toggled before.
+   */
+  hidden?: boolean;
 }
 
 // Order + copy per the blueprint §8.2.
@@ -19,10 +25,13 @@ export const CREATIONS: CreationMeta[] = [
   { type: "coupon", label: "Love Coupon", microcopy: "A promise they can cash in later.", href: "/create/coupon", icon: "Ticket", ready: true },
   { type: "media", label: "Picture / Video", microcopy: "Send a little piece of your world.", href: "/create/media", icon: "Image", ready: true },
   { type: "voice", label: "Voice Note", microcopy: "Let them hear you close.", href: "/create/voice", icon: "Mic", ready: true },
-  { type: "doodle", label: "Doodle", microcopy: "Draw the thing you can't say in words.", href: "/create/doodle", icon: "Pencil", ready: true },
+  { type: "doodle", label: "Doodle", microcopy: "Draw the thing you can't say in words.", href: "/create/doodle", icon: "Pencil", ready: true, hidden: true },
   { type: "bouquet", label: "Bouquet", microcopy: "Pick flowers that feel like them.", href: "/create/bouquet", icon: "Flower2", ready: true },
-  { type: "collage", label: "Collage", microcopy: "Put your favorite little moments together.", href: "/create/collage", icon: "LayoutGrid", ready: true }
+  { type: "collage", label: "Collage", microcopy: "Put your favorite little moments together.", href: "/create/collage", icon: "LayoutGrid", ready: true, hidden: true }
 ];
+
+/** What the pickers offer. CREATIONS stays complete so saved items still resolve. */
+export const VISIBLE_CREATIONS: CreationMeta[] = CREATIONS.filter((c) => !c.hidden);
 
 export const CREATION_BY_TYPE: Record<ContentType, CreationMeta> = CREATIONS.reduce(
   (acc, c) => {

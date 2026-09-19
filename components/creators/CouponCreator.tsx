@@ -3,8 +3,10 @@
 import { useActionState, useState } from "react";
 import { saveCoupon, type CreateState } from "@/app/create/actions";
 import { couponSchema } from "@/lib/validation";
-import { DEFAULT_STYLE, type ItemStyle } from "@/lib/style";
+import { COUPON_DESIGNS, COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
+import { DEFAULT_STYLE, styleClasses, tiltStyle, type ItemStyle } from "@/lib/style";
 import { StylePanel } from "@/components/creators/StylePanel";
+import { CouponView } from "@/components/scrapbook/CouponView";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
@@ -20,6 +22,8 @@ interface GuestDone {
 export function CouponCreator({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(saveCoupon, initial);
   const [text, setText] = useState("");
+  const [expires, setExpires] = useState("");
+  const [design, setDesign] = useState<CouponDesign>("ticket");
   const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [guestError, setGuestError] = useState("");
@@ -30,7 +34,9 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
     const parsed = couponSchema.safeParse({
       title: form.get("title") ?? "",
       coupon_text: form.get("coupon_text") ?? "",
-      expires_at: form.get("expires_at") ?? ""
+      expires_at: form.get("expires_at") ?? "",
+      design,
+      style
     });
 
     if (!parsed.success) {
@@ -45,7 +51,7 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
     const item: GuestItem = {
       type: "coupon",
       title,
-      payload: { style },
+      payload: { style, design },
       coupon: {
         coupon_text: parsed.data.coupon_text,
         expires_at: expiry && !isNaN(expiry.getTime()) ? expiry.toISOString() : null
@@ -67,6 +73,8 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
     <>
       <form {...formProps} className="studio-panel">
         <input type="hidden" name="style" value={JSON.stringify(style)} />
+        <input type="hidden" name="design" value={design} />
+
         <div className="field">
           <label htmlFor="title">Title (optional)</label>
           <input id="title" name="title" placeholder="A love coupon" />
@@ -84,7 +92,43 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
         </div>
         <div className="field">
           <label htmlFor="expires_at">Expires (optional)</label>
-          <input id="expires_at" name="expires_at" type="datetime-local" />
+          <input
+            id="expires_at"
+            name="expires_at"
+            type="datetime-local"
+            value={expires}
+            onChange={(e) => setExpires(e.target.value)}
+          />
+        </div>
+
+        <div className="field">
+          <label>Design</label>
+          <div className="coupon-design-grid">
+            {COUPON_DESIGNS.map((id) => {
+              const skin = COUPON_SKINS[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="coupon-design-chip"
+                  aria-pressed={design === id}
+                  onClick={() => setDesign(id)}
+                >
+                  <span
+                    className="coupon-design-swatch"
+                    style={{
+                      background: skin.bg,
+                      borderColor: skin.border,
+                      color: skin.accent
+                    }}
+                  >
+                    {skin.flourish || "♡"}
+                  </span>
+                  {skin.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="field">
@@ -123,11 +167,14 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
       ) : (
         <div className="studio-panel">
           <p className="eyebrow">Preview</p>
-          <div className="coupon-preview">
-            <span className="coupon-tag">Love Coupon</span>
-            <strong>{text || "A promise they can cash in later."}</strong>
-            <span className="coupon-dash" />
-            <small>Redeem any time ♡</small>
+          <div className={styleClasses(style)}>
+            <div className="styled-block" style={tiltStyle(style)}>
+              <CouponView
+                design={design}
+                text={text || "A promise they can cash in later."}
+                expiresAt={expires ? new Date(expires).toISOString() : null}
+              />
+            </div>
           </div>
         </div>
       )}

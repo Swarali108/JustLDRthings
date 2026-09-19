@@ -5,19 +5,25 @@ import { saveBouquet, type CreateState } from "@/app/create/actions";
 import { bouquetSchema } from "@/lib/validation";
 import {
   FLOWERS,
-  FLOWER_BY_ID,
-  MAX_STEMS,
   GREENERY,
-  MAX_GREENERY,
   WRAPS,
   RIBBONS,
+  MAX_STEMS,
+  MAX_PER_FLOWER,
+  MAX_GREENERY,
+  MAX_PER_LEAF,
+  countOf,
+  addOne,
+  removeOne,
   arrangementMeanings
 } from "@/lib/flowers";
 import { DEFAULT_STYLE, styleClasses, tiltStyle, type ItemStyle } from "@/lib/style";
 import { StylePanel } from "@/components/creators/StylePanel";
+import { Stepper } from "@/components/creators/Stepper";
 import { GuestResult } from "@/components/guest/GuestResult";
 import { guestItemToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 import { BouquetView } from "@/components/scrapbook/BouquetView";
+import { FlowerArt, LeafArt } from "@/components/scrapbook/FlowerArt";
 import type { GuestItem, GuestPayload } from "@/lib/guest-share";
 
 const initial: CreateState = {};
@@ -31,26 +37,16 @@ interface GuestDone {
 export function BouquetCreator({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(saveBouquet, initial);
 
-  // Stems are an ordered list, not a set: picking rose twice puts two roses in.
+  // Stored as repeated ids rather than a count map: the renderer already walks a
+  // list, and repeated short ids compress well in a share link.
   const [stems, setStems] = useState<string[]>([]);
   const [greens, setGreens] = useState<string[]>([]);
-  const [wrap, setWrap] = useState("cream");
-  const [ribbon, setRibbon] = useState("none");
+  const [wrap, setWrap] = useState("peach");
+  const [ribbon, setRibbon] = useState("peach");
   const [note, setNote] = useState("");
   const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<GuestDone | null>(null);
   const [error, setError] = useState("");
-
-  function addStem(id: string) {
-    if (stems.length >= MAX_STEMS) return;
-    setStems([...stems, id]);
-  }
-
-  function removeLast(id: string) {
-    const idx = stems.lastIndexOf(id);
-    if (idx === -1) return;
-    setStems(stems.filter((_, i) => i !== idx));
-  }
 
   function build(form: FormData) {
     return bouquetSchema.safeParse({
@@ -94,8 +90,6 @@ export function BouquetCreator({ signedIn }: { signedIn: boolean }) {
     });
   }
 
-  // The signed-in path posts through a hidden field, since stems live in state
-  // rather than in a form control.
   const formProps = signedIn ? { action: formAction } : { onSubmit: onGuestSubmit };
   const shownError = signedIn ? state.error : error;
   const meanings = arrangementMeanings(stems, greens);
@@ -116,108 +110,71 @@ export function BouquetCreator({ signedIn }: { signedIn: boolean }) {
 
         <div className="field">
           <label>
-            Pick your flowers{" "}
+            Flowers{" "}
             <span className="sty-muted" style={{ fontWeight: 400 }}>
               ({stems.length}/{MAX_STEMS})
             </span>
           </label>
-          <p style={{ color: "var(--mauve)", fontSize: "0.85rem", margin: "2px 0 0" }}>
-            Tap to add a stem. Tap a picked flower again to take one out.
-          </p>
-          <div className="bouquet-pick">
-            {FLOWERS.map((flower) => {
-              const count = stems.filter((s) => s === flower.id).length;
-              return (
-                <button
-                  key={flower.id}
-                  type="button"
-                  className="bouquet-option"
-                  aria-pressed={count > 0}
-                  aria-label={`${flower.label} — ${flower.meaning}${count ? `, ${count} picked` : ""}`}
-                  onClick={(e) => (e.shiftKey ? removeLast(flower.id) : addStem(flower.id))}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    removeLast(flower.id);
-                  }}
-                >
-                  <span className="bloom" style={{ background: flower.color }} />
-                  <strong>
-                    {flower.label}
-                    {count > 1 ? ` ×${count}` : ""}
-                  </strong>
-                  <small>{flower.meaning}</small>
-                </button>
-              );
-            })}
+          <div className="stepper-grid">
+            {FLOWERS.map((flower) => (
+              <Stepper
+                key={flower.id}
+                label={flower.label}
+                meaning={flower.meaning}
+                count={countOf(stems, flower.id)}
+                perKindMax={MAX_PER_FLOWER}
+                atTotal={stems.length >= MAX_STEMS}
+                onAdd={() => setStems(addOne(stems, flower.id, MAX_PER_FLOWER, MAX_STEMS))}
+                onRemove={() => setStems(removeOne(stems, flower.id))}
+              >
+                <FlowerArt flower={flower} size={52} />
+              </Stepper>
+            ))}
           </div>
           {stems.length ? (
-            <div className="row-actions" style={{ marginTop: 10 }}>
-              <button
-                type="button"
-                className="button button-light"
-                onClick={() => setStems(stems.slice(0, -1))}
-              >
-                Undo last stem
-              </button>
-              <button type="button" className="button button-light" onClick={() => setStems([])}>
-                Clear
-              </button>
-            </div>
+            <button
+              type="button"
+              className="button button-light"
+              style={{ marginTop: 10 }}
+              onClick={() => setStems([])}
+            >
+              Clear flowers
+            </button>
           ) : null}
         </div>
 
         <div className="field">
           <label>
-            Greenery{" "}
+            Filler leaves{" "}
             <span className="sty-muted" style={{ fontWeight: 400 }}>
               ({greens.length}/{MAX_GREENERY})
             </span>
           </label>
-          <div className="bouquet-pick">
-            {GREENERY.map((sprig) => {
-              const count = greens.filter((g) => g === sprig.id).length;
-              return (
-                <button
-                  key={sprig.id}
-                  type="button"
-                  className="bouquet-option"
-                  aria-pressed={count > 0}
-                  aria-label={`${sprig.label} — ${sprig.meaning}`}
-                  onClick={() =>
-                    greens.length < MAX_GREENERY && setGreens([...greens, sprig.id])
-                  }
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    const idx = greens.lastIndexOf(sprig.id);
-                    if (idx !== -1) setGreens(greens.filter((_, i) => i !== idx));
-                  }}
-                >
-                  <span
-                    className={`bloom sprig-swatch sprig-${sprig.shape}`}
-                    style={{ background: sprig.color }}
-                  />
-                  <strong>
-                    {sprig.label}
-                    {count > 1 ? ` ×${count}` : ""}
-                  </strong>
-                  <small>{sprig.meaning}</small>
-                </button>
-              );
-            })}
+          <div className="stepper-grid">
+            {GREENERY.map((leaf) => (
+              <Stepper
+                key={leaf.id}
+                label={leaf.label}
+                meaning={leaf.meaning}
+                count={countOf(greens, leaf.id)}
+                perKindMax={MAX_PER_LEAF}
+                atTotal={greens.length >= MAX_GREENERY}
+                onAdd={() => setGreens(addOne(greens, leaf.id, MAX_PER_LEAF, MAX_GREENERY))}
+                onRemove={() => setGreens(removeOne(greens, leaf.id))}
+              >
+                <LeafArt leaf={leaf} size={52} />
+              </Stepper>
+            ))}
           </div>
           {greens.length ? (
-            <div className="row-actions" style={{ marginTop: 10 }}>
-              <button
-                type="button"
-                className="button button-light"
-                onClick={() => setGreens(greens.slice(0, -1))}
-              >
-                Undo last sprig
-              </button>
-              <button type="button" className="button button-light" onClick={() => setGreens([])}>
-                Clear greenery
-              </button>
-            </div>
+            <button
+              type="button"
+              className="button button-light"
+              style={{ marginTop: 10 }}
+              onClick={() => setGreens([])}
+            >
+              Clear leaves
+            </button>
           ) : null}
         </div>
 
@@ -232,7 +189,7 @@ export function BouquetCreator({ signedIn }: { signedIn: boolean }) {
                 aria-pressed={wrap === paper.id}
                 onClick={() => setWrap(paper.id)}
               >
-                <span className="wrap-swatch" style={{ background: paper.background }} />
+                <span className="wrap-swatch" style={{ background: paper.front }} />
                 {paper.label}
               </button>
             ))}
@@ -314,11 +271,6 @@ export function BouquetCreator({ signedIn }: { signedIn: boolean }) {
               ) : null}
             </div>
           </div>
-          {stems.length ? (
-            <p style={{ color: "var(--mauve)", fontSize: "0.85rem", marginTop: 12 }}>
-              {stems.map((s) => FLOWER_BY_ID[s]?.label).filter(Boolean).join(" · ")}
-            </p>
-          ) : null}
         </div>
       )}
     </>
