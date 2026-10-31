@@ -85,6 +85,22 @@ export function resetRateLimits(): void {
  * allowed far less often than a one-shot writing suggestion.
  */
 export const LIMITS = {
-  aiWrite: { limit: 20, windowMs: 60_000 },
-  mixtape: { limit: 5, windowMs: 10 * 60_000 }
+  aiWrite: {
+    signedIn: { limit: 20, windowMs: 60_000 },
+    guest: { limit: 6, windowMs: 60_000 }
+  },
+  mixtape: {
+    signedIn: { limit: 5, windowMs: 10 * 60_000 },
+    guest: { limit: 2, windowMs: 60 * 60_000 }
+  }
 } as const;
+
+/** Pick the tier for a caller. Guests get the tighter one — an IP bucket is
+ *  shared and evadable, so it is set low enough that walking past it is not
+ *  worth the effort for the value of one mixtape. */
+export function tierFor(
+  budget: { signedIn: { limit: number; windowMs: number }; guest: { limit: number; windowMs: number } },
+  signedIn: boolean
+) {
+  return signedIn ? budget.signedIn : budget.guest;
+}

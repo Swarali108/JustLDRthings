@@ -126,7 +126,7 @@ export function PaperCreator({
                 : "For everything too big for a text…"
             }
           />
-          {signedIn ? <AiAssist kind={kind} onResult={(text) => setBody(text)} /> : null}
+          <AiAssist kind={kind} onResult={(text) => setBody(text)} />
         </div>
 
         <div className="field">

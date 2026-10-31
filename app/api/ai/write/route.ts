@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { aiWriteSchema } from "@/lib/validation";
-import { rateLimit, LIMITS } from "@/lib/rate-limit";
+import { rateLimit, LIMITS, tierFor } from "@/lib/rate-limit";
+import { identifyCaller } from "@/lib/ai/caller";
 
 const SYSTEM: Record<string, string> = {
   note: "You help write a short, warm, sincere note from one partner to another in a long-distance relationship. 1-3 sentences. Tender, specific, not cheesy. No hashtags or emojis unless natural.",
@@ -14,18 +14,12 @@ const SYSTEM: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  // Must be signed in.
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Please log in." }, { status: 401 });
-  }
-
-  // Added with the mixtape work: this route had no limit at all, so a stuck
+  // Open to guests, like every creator. Rate limited by user id when signed in
+  // and by IP otherwise; the route previously had no limit at all, so a stuck
   // component could spend the key in a loop.
-  const gate = rateLimit(`ai-write:${user.id}`, LIMITS.aiWrite.limit, LIMITS.aiWrite.windowMs);
+  const caller = await identifyCaller(request, "ai-write");
+  const budget = tierFor(LIMITS.aiWrite, caller.signedIn);
+  const gate = rateLimit(caller.key, budget.limit, budget.windowMs);
   if (!gate.ok) {
     return NextResponse.json(
       { error: "That's a lot of suggestions at once — give it a moment. ♡" },

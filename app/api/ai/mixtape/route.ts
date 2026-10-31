@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { rateLimit, LIMITS } from "@/lib/rate-limit";
+import { rateLimit, LIMITS, tierFor } from "@/lib/rate-limit";
+import { identifyCaller } from "@/lib/ai/caller";
 import { runMixtape, MIXTAPE_MODEL_TIMEOUT_MS, type ChatFn } from "@/lib/ai/mixtape-run";
 
 /**
@@ -48,16 +48,13 @@ function openAiChat(apiKey: string): ChatFn {
 }
 
 export async function POST(request: Request) {
-  // Signed in only: this spends money and makes outbound calls.
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Please log in." }, { status: 401 });
-  }
-
-  const gate = rateLimit(`mixtape:${user.id}`, LIMITS.mixtape.limit, LIMITS.mixtape.windowMs);
+  // Open to guests: everything in this app is usable without an account, and
+  // signing in only buys somewhere to keep what you made. Guests are bucketed
+  // by IP and given a much tighter allowance — see lib/ai/caller.ts for what
+  // that is and is not worth.
+  const caller = await identifyCaller(request, "mixtape");
+  const budget = tierFor(LIMITS.mixtape, caller.signedIn);
+  const gate = rateLimit(caller.key, budget.limit, budget.windowMs);
   if (!gate.ok) {
     return NextResponse.json(
       {
@@ -100,7 +97,8 @@ export async function POST(request: Request) {
   console.info(
     JSON.stringify({
       at: "ai.mixtape",
-      userId: user.id,
+      userId: caller.userId,
+      signedIn: caller.signedIn,
       ok: result.ok,
       ...(result.ok ? {} : { failure: result.error }),
       proposed: result.stats.proposed,

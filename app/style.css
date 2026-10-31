@@ -867,3 +867,18 @@
 .track-actions { align-items: center; display: flex; flex: none; gap: 4px; }
 
 .track-nopreview { color: var(--sty-muted, var(--mauve)); padding: 0 8px; }
+
+/* Marks a creator that can't be used without signing in. Shown on the card so
+   nobody discovers the limit only after writing a paragraph. */
+.needs-account {
+  background: rgba(106, 33, 71, 0.1);
+  border-radius: 999px;
+  color: var(--burgundy);
+  display: inline-block;
+  font-family: Inter, sans-serif;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
