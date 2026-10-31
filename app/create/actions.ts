@@ -11,7 +11,8 @@ import {
   mediaMetaSchema,
   voiceMetaSchema,
   bouquetSchema,
-  doodleItemSchema
+  doodleItemSchema,
+  mixtapeItemSchema
 } from "@/lib/validation";
 import { styleSchema } from "@/lib/style";
 import type { ContentType, MediaType } from "@/types/db";
@@ -243,6 +244,29 @@ export async function saveDoodle(_prev: CreateState, formData: FormData): Promis
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
   redirect("/dashboard?created=doodle");
+}
+
+export async function saveMixtape(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  // The mixtape is built in the browser from the API response, so it arrives as
+  // JSON in a hidden field. It is re-validated here rather than trusted: the
+  // url checks inside `mixtapeSchema` run again on this path too.
+  const parsed = mixtapeItemSchema.safeParse({
+    title: formData.get("title") ?? "",
+    mixtape: parseJsonField(formData.get("mixtape")),
+    style: parseStyle(formData.get("style"))
+  });
+  if (!parsed.success) return { error: "That mixtape didn't come through. Try making it again." };
+
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("content_items").insert({
+    owner_id: user.id,
+    type: "mixtape" as ContentType,
+    title: parsed.data.title || parsed.data.mixtape.title || "A mixtape for you",
+    payload_json: { mixtape: parsed.data.mixtape, style: parsed.data.style }
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  redirect("/dashboard?created=mixtape");
 }
 
 // ---- Media / voice / collage (multi-step: client uploads between calls) ----

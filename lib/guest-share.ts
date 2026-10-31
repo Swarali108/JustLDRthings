@@ -10,6 +10,7 @@ import {
   RIBBON_IDS
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
+import { mixtapeSchema } from "@/lib/mixtape";
 import { paperChoiceSchema } from "@/lib/paper";
 import { envelopeSchema, sealSchema } from "@/lib/envelope";
 import { couponDesignSchema } from "@/lib/coupon-designs";
@@ -30,7 +31,7 @@ import type { RenderItem } from "@/components/scrapbook/ItemBlock";
  * travel fine.
  */
 
-export const GUEST_TYPES = ["note", "letter", "song", "coupon", "bouquet", "doodle"] as const;
+export const GUEST_TYPES = ["note", "letter", "song", "coupon", "bouquet", "doodle", "mixtape"] as const;
 export type GuestType = (typeof GUEST_TYPES)[number];
 
 /** Above this the link still works, but chat apps start truncating it. */
@@ -85,6 +86,10 @@ const guestItemSchema = z.object({
       ribbon: z.enum(RIBBON_IDS).optional(),
       // Doodle: stroke geometry, bounded in count, length and coordinate range.
       doodle: doodleSchema.optional(),
+      // Mixtape: every track url is re-checked against Apple's hosts on the way
+      // in, because by now this payload has been through a URL a stranger could
+      // have edited.
+      mixtape: mixtapeSchema.optional(),
       // Colour / lettering / placement / decorations — all closed sets too.
       style: styleSchema.optional()
     })

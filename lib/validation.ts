@@ -8,6 +8,7 @@ import {
   RIBBON_IDS
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
+import { mixtapeSchema } from "@/lib/mixtape";
 import { paperChoiceSchema } from "@/lib/paper";
 import { envelopeSchema, sealSchema } from "@/lib/envelope";
 import { couponDesignSchema } from "@/lib/coupon-designs";
@@ -116,6 +117,12 @@ export const doodleItemSchema = z.object({
 export const collageMetaSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
   caption: z.string().trim().max(400).optional().default(""),
+  style: styleSchema.optional()
+});
+
+export const mixtapeItemSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  mixtape: mixtapeSchema,
   style: styleSchema.optional()
 });
 

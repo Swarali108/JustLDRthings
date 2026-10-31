@@ -2,6 +2,8 @@ import type { ContentType, MediaType, SharedCoupon } from "@/types/db";
 import { CouponRedeem } from "@/components/scrapbook/CouponRedeem";
 import { BouquetView } from "@/components/scrapbook/BouquetView";
 import { DoodleView } from "@/components/scrapbook/DoodleView";
+import { MixtapeView } from "@/components/scrapbook/MixtapeView";
+import { mixtapeSchema } from "@/lib/mixtape";
 import { doodleSchema } from "@/lib/doodle";
 import { arrangementMeanings } from "@/lib/flowers";
 import { readStyle, styleClasses, tiltStyle } from "@/lib/style";
@@ -179,6 +181,22 @@ function Body({
             <span className="paper-placeholder">This drawing didn&apos;t come through</span>
           )}
           {p.note ? <p className="block-body">{p.note}</p> : null}
+        </article>
+      );
+    }
+
+    case "mixtape": {
+      // Re-validated at render, like the doodle: this payload may have arrived
+      // from a URL, and a malformed one should show nothing rather than throw.
+      const tape = mixtapeSchema.safeParse(item.payload.mixtape);
+      return (
+        <article className="block styled-block">
+          <Stickers stickers={stickers} />
+          {tape.success ? (
+            <MixtapeView mixtape={tape.data} />
+          ) : (
+            <span className="paper-placeholder">This mixtape didn&apos;t come through</span>
+          )}
         </article>
       );
     }

@@ -9,6 +9,7 @@ import {
 import { paperStyle, type PaperChoice } from "@/lib/paper";
 import { ENVELOPE_SKINS, type EnvelopeId } from "@/lib/envelope";
 import { COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
+import type { Mixtape } from "@/lib/mixtape";
 import {
   BQ,
   fanOut,
@@ -47,7 +48,7 @@ import {
 export const KEEPSAKE_MEDIA_LIMIT = 4 * 1024 * 1024;
 
 export interface KeepsakeBlock {
-  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle";
+  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape";
   title?: string;
   body?: string;
   paper?: PaperChoice;
@@ -55,6 +56,7 @@ export interface KeepsakeBlock {
   envelope?: EnvelopeId;
   seal?: string;
   design?: CouponDesign;
+  mixtape?: Mixtape;
   url?: string;
   note?: string;
   couponText?: string;
@@ -272,8 +274,43 @@ function renderDoodle(block: KeepsakeBlock, style: ItemStyle): string {
 </article>`;
 }
 
+/**
+ * A mixtape, offline.
+ *
+ * Deliberately NOT a player: the keepsake is a file that must still open in
+ * five years with no network, and Apple's preview clips are remote URLs that
+ * will not be there. What keeps is the list — what was chosen, and why — plus a
+ * link out for anyone who opens it with a connection.
+ */
+function renderMixtape(block: KeepsakeBlock, style: ItemStyle): string {
+  const tape = block.mixtape;
+  if (!tape) return "";
+
+  const rows = tape.tracks
+    .map(
+      (t, i) => `<li>
+      <span class="n">${i + 1}</span>
+      <span>
+        <strong>${esc(t.title)}</strong><br>
+        <small>${esc(t.artist)}</small>
+        ${t.reason ? `<br><em>${esc(t.reason)}</em>` : ""}
+      </span>
+      ${t.appleMusicUrl ? `<a href="${esc(t.appleMusicUrl)}" target="_blank" rel="noreferrer noopener">&#8599;</a>` : ""}
+    </li>`
+    )
+    .join("");
+
+  return `<article class="block" style="${blockAttrs(style)}">
+  ${renderStickers(style)}
+  <div class="cassette"><span>&#9655;&#9655;</span><strong>${esc(tape.title)}</strong></div>
+  ${tape.dedication ? `<p class="body">${esc(tape.dedication)}</p>` : ""}
+  <ol class="tracks">${rows}</ol>
+</article>`;
+}
+
 function renderBlock(block: KeepsakeBlock): string {
   const style = block.style || DEFAULT_STYLE;
+  if (block.kind === "mixtape") return renderMixtape(block, style);
   if (block.kind === "doodle") return renderDoodle(block, style);
   if (block.kind === "bouquet") return renderBouquet(block, style);
   if (block.kind === "collage") return renderCollage(block, style);
@@ -414,6 +451,11 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
     height: 120px; width: 190px; margin-top: -14px;
   }
   .meanings { font-size: .82rem; opacity: .75; margin: 12px 0 0; font-style: italic; }
+  .cassette { background:#2d1525; color:#f4e9d8; border-radius:8px; padding:12px 16px; display:flex; gap:10px; align-items:center; }
+  .tracks { list-style:none; padding:0; margin:14px 0 0; }
+  .tracks li { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid rgba(140,101,124,.2); }
+  .tracks .n { opacity:.5; min-width:18px; }
+  .tracks em { font-size:.85rem; opacity:.75; }
   .sheet { border-radius: 12px; padding: 20px 22px; }
   .sheet h3 { margin: 0 0 8px; }
   .env { display: block; width: 62%; margin: 0 auto 14px; }
@@ -506,6 +548,8 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
       };
     case "doodle":
       return { kind: "doodle", title: item.title, doodle: p.doodle, note: p.note, style };
+    case "mixtape":
+      return { kind: "mixtape", title: item.title, mixtape: p.mixtape, style };
     case "coupon":
       return {
         kind: "coupon",

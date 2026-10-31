@@ -25,6 +25,7 @@ export const CREATIONS: CreationMeta[] = [
   { type: "coupon", label: "Love Coupon", microcopy: "A promise they can cash in later.", href: "/create/coupon", icon: "Ticket", ready: true },
   { type: "media", label: "Picture / Video", microcopy: "Send a little piece of your world.", href: "/create/media", icon: "Image", ready: true },
   { type: "voice", label: "Voice Note", microcopy: "Let them hear you close.", href: "/create/voice", icon: "Mic", ready: true },
+  { type: "mixtape", label: "AI Mixtape", microcopy: "Songs picked from your story about them.", href: "/create/mixtape", icon: "Music", ready: true },
   { type: "doodle", label: "Doodle", microcopy: "Draw the thing you can't say in words.", href: "/create/doodle", icon: "Pencil", ready: true, hidden: true },
   { type: "bouquet", label: "Bouquet", microcopy: "Pick flowers that feel like them.", href: "/create/bouquet", icon: "Flower2", ready: true },
   { type: "collage", label: "Collage", microcopy: "Put your favorite little moments together.", href: "/create/collage", icon: "LayoutGrid", ready: true, hidden: true }

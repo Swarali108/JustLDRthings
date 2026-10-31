@@ -11,7 +11,8 @@ export type ContentType =
   | "voice"
   | "doodle"
   | "bouquet"
-  | "collage";
+  | "collage"
+  | "mixtape";
 
 export type PageStatus = "draft" | "published";
 export type MediaType = "image" | "video" | "audio";

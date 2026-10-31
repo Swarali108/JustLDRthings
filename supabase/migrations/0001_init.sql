@@ -81,7 +81,7 @@ create table if not exists public.content_items (
   id           uuid primary key default gen_random_uuid(),
   owner_id     uuid not null references auth.users (id) on delete cascade,
   type         text not null check (type in
-                 ('note', 'letter', 'song', 'coupon', 'media', 'voice', 'doodle', 'bouquet', 'collage')),
+                 ('note', 'letter', 'song', 'coupon', 'media', 'voice', 'doodle', 'bouquet', 'collage', 'mixtape')),
   title        text not null default '',
   payload_json jsonb not null default '{}'::jsonb,
   created_at   timestamptz not null default now(),
