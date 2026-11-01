@@ -11,6 +11,7 @@ import {
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
 import { mixtapeSchema } from "@/lib/mixtape";
+import { poemSchema } from "@/lib/poem";
 import { paperChoiceSchema } from "@/lib/paper";
 import { envelopeSchema, sealSchema } from "@/lib/envelope";
 import { couponDesignSchema } from "@/lib/coupon-designs";
@@ -31,7 +32,7 @@ import type { RenderItem } from "@/components/scrapbook/ItemBlock";
  * travel fine.
  */
 
-export const GUEST_TYPES = ["note", "letter", "song", "coupon", "bouquet", "doodle", "mixtape"] as const;
+export const GUEST_TYPES = ["note", "letter", "song", "coupon", "bouquet", "doodle", "mixtape", "poem"] as const;
 export type GuestType = (typeof GUEST_TYPES)[number];
 
 /** Above this the link still works, but chat apps start truncating it. */
@@ -90,6 +91,9 @@ const guestItemSchema = z.object({
       // in, because by now this payload has been through a URL a stranger could
       // have edited.
       mixtape: mixtapeSchema.optional(),
+      // Poem: plain text and a closed-set form; nothing here becomes a url or
+      // an attribute, so the schema is only guarding length and shape.
+      poem: poemSchema.optional(),
       // Colour / lettering / placement / decorations — all closed sets too.
       style: styleSchema.optional()
     })

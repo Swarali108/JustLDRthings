@@ -12,7 +12,8 @@ export type ContentType =
   | "doodle"
   | "bouquet"
   | "collage"
-  | "mixtape";
+  | "mixtape"
+  | "poem";
 
 export type PageStatus = "draft" | "published";
 export type MediaType = "image" | "video" | "audio";

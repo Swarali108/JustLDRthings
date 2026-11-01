@@ -10,6 +10,7 @@ import { paperStyle, type PaperChoice } from "@/lib/paper";
 import { ENVELOPE_SKINS, type EnvelopeId } from "@/lib/envelope";
 import { COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
 import type { Mixtape } from "@/lib/mixtape";
+import type { Poem } from "@/lib/poem";
 import {
   BQ,
   fanOut,
@@ -48,7 +49,7 @@ import {
 export const KEEPSAKE_MEDIA_LIMIT = 4 * 1024 * 1024;
 
 export interface KeepsakeBlock {
-  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape";
+  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape" | "poem";
   title?: string;
   body?: string;
   paper?: PaperChoice;
@@ -57,6 +58,7 @@ export interface KeepsakeBlock {
   seal?: string;
   design?: CouponDesign;
   mixtape?: Mixtape;
+  poem?: Poem;
   url?: string;
   note?: string;
   couponText?: string;
@@ -308,8 +310,20 @@ function renderMixtape(block: KeepsakeBlock, style: ItemStyle): string {
 </article>`;
 }
 
+/** A poem offline. Line breaks ARE the poem, so they are preserved. */
+function renderPoem(block: KeepsakeBlock, style: ItemStyle): string {
+  const poem = block.poem;
+  if (!poem) return "";
+  return `<article class="block" style="${blockAttrs(style)}">
+  ${renderStickers(style)}
+  <h3>${esc(poem.title)}</h3>
+  <p class="verse">${esc(poem.body)}</p>
+</article>`;
+}
+
 function renderBlock(block: KeepsakeBlock): string {
   const style = block.style || DEFAULT_STYLE;
+  if (block.kind === "poem") return renderPoem(block, style);
   if (block.kind === "mixtape") return renderMixtape(block, style);
   if (block.kind === "doodle") return renderDoodle(block, style);
   if (block.kind === "bouquet") return renderBouquet(block, style);
@@ -456,6 +470,7 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
   .tracks li { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid rgba(140,101,124,.2); }
   .tracks .n { opacity:.5; min-width:18px; }
   .tracks em { font-size:.85rem; opacity:.75; }
+  .verse { white-space: pre-wrap; line-height: 1.75; margin: 10px 0 0; }
   .sheet { border-radius: 12px; padding: 20px 22px; }
   .sheet h3 { margin: 0 0 8px; }
   .env { display: block; width: 62%; margin: 0 auto 14px; }
@@ -550,6 +565,8 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
       return { kind: "doodle", title: item.title, doodle: p.doodle, note: p.note, style };
     case "mixtape":
       return { kind: "mixtape", title: item.title, mixtape: p.mixtape, style };
+    case "poem":
+      return { kind: "poem", title: item.title, poem: p.poem, style };
     case "coupon":
       return {
         kind: "coupon",

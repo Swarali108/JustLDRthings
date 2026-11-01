@@ -882,3 +882,58 @@
   padding: 3px 10px;
   text-transform: uppercase;
 }
+
+/* --- poem ----------------------------------------------------------------- */
+
+.poem-title {
+  font-size: 1.25rem;
+  margin: 0 0 12px;
+}
+
+/* Line and stanza breaks ARE the poem; collapsing them would destroy the form. */
+.poem-body {
+  line-height: 1.85;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.poem-haiku .poem-body { line-height: 2; text-align: inherit; }
+
+.poem-used {
+  border-top: 1px dashed var(--sty-border, rgba(140, 101, 124, 0.3));
+  margin-top: 18px;
+  padding-top: 12px;
+}
+
+.poem-used-label,
+.poem-detail-list .eyebrow {
+  color: var(--sty-muted, var(--mauve));
+  font-family: Inter, sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.poem-used ul,
+.poem-detail-list ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.poem-used li,
+.poem-detail-list li {
+  font-family: Inter, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.poem-used em,
+.poem-detail-list em {
+  color: var(--sty-muted, var(--mauve));
+  font-style: normal;
+  margin-right: 4px;
+}
+
+.detail-unused { opacity: 0.55; }
+.detail-used span { color: var(--burgundy); }

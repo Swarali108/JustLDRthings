@@ -3,6 +3,8 @@ import { CouponRedeem } from "@/components/scrapbook/CouponRedeem";
 import { BouquetView } from "@/components/scrapbook/BouquetView";
 import { DoodleView } from "@/components/scrapbook/DoodleView";
 import { MixtapeView } from "@/components/scrapbook/MixtapeView";
+import { PoemView } from "@/components/scrapbook/PoemView";
+import { poemSchema } from "@/lib/poem";
 import { mixtapeSchema } from "@/lib/mixtape";
 import { doodleSchema } from "@/lib/doodle";
 import { arrangementMeanings } from "@/lib/flowers";
@@ -181,6 +183,21 @@ function Body({
             <span className="paper-placeholder">This drawing didn&apos;t come through</span>
           )}
           {p.note ? <p className="block-body">{p.note}</p> : null}
+        </article>
+      );
+    }
+
+    case "poem": {
+      // Re-validated at render: this payload may have come from a URL.
+      const written = poemSchema.safeParse(item.payload.poem);
+      return (
+        <article className="block styled-block">
+          <Stickers stickers={stickers} />
+          {written.success ? (
+            <PoemView poem={written.data} />
+          ) : (
+            <span className="paper-placeholder">This poem didn&apos;t come through</span>
+          )}
         </article>
       );
     }

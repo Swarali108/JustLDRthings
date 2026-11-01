@@ -92,6 +92,12 @@ export const LIMITS = {
   mixtape: {
     signedIn: { limit: 5, windowMs: 10 * 60_000 },
     guest: { limit: 2, windowMs: 60 * 60_000 }
+  },
+  // Two model calls, sometimes three with a rewrite, but no outside lookups —
+  // so cheaper than a mixtape and allowed more often.
+  poem: {
+    signedIn: { limit: 10, windowMs: 10 * 60_000 },
+    guest: { limit: 4, windowMs: 60 * 60_000 }
   }
 } as const;
 

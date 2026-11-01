@@ -7,6 +7,7 @@ import {
   Mic,
   Pencil,
   Flower2,
+  Feather,
   LayoutGrid,
   Heart,
   Plus,
@@ -36,7 +37,8 @@ const MAP = {
   Eye,
   Trash2,
   Share2,
-  Check
+  Check,
+  Feather
 } as const;
 
 export type IconName = keyof typeof MAP;

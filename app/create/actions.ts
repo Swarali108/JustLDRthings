@@ -12,7 +12,8 @@ import {
   voiceMetaSchema,
   bouquetSchema,
   doodleItemSchema,
-  mixtapeItemSchema
+  mixtapeItemSchema,
+  poemItemSchema
 } from "@/lib/validation";
 import { styleSchema } from "@/lib/style";
 import type { ContentType, MediaType } from "@/types/db";
@@ -267,6 +268,28 @@ export async function saveMixtape(_prev: CreateState, formData: FormData): Promi
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
   redirect("/dashboard?created=mixtape");
+}
+
+export async function savePoem(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  // Built in the browser and editable there, so it arrives as JSON in a hidden
+  // field and is re-validated here rather than trusted.
+  const parsed = poemItemSchema.safeParse({
+    title: formData.get("title") ?? "",
+    poem: parseJsonField(formData.get("poem")),
+    style: parseStyle(formData.get("style"))
+  });
+  if (!parsed.success) return { error: "That poem didn't come through. Try writing it again." };
+
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("content_items").insert({
+    owner_id: user.id,
+    type: "poem" as ContentType,
+    title: parsed.data.title || parsed.data.poem.title || "A poem for you",
+    payload_json: { poem: parsed.data.poem, style: parsed.data.style }
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  redirect("/dashboard?created=poem");
 }
 
 // ---- Media / voice / collage (multi-step: client uploads between calls) ----

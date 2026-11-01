@@ -9,6 +9,7 @@ import {
 } from "@/lib/flowers";
 import { doodleSchema } from "@/lib/doodle";
 import { mixtapeSchema } from "@/lib/mixtape";
+import { poemSchema } from "@/lib/poem";
 import { paperChoiceSchema } from "@/lib/paper";
 import { envelopeSchema, sealSchema } from "@/lib/envelope";
 import { couponDesignSchema } from "@/lib/coupon-designs";
@@ -123,6 +124,12 @@ export const collageMetaSchema = z.object({
 export const mixtapeItemSchema = z.object({
   title: z.string().trim().max(120).optional().default(""),
   mixtape: mixtapeSchema,
+  style: styleSchema.optional()
+});
+
+export const poemItemSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  poem: poemSchema,
   style: styleSchema.optional()
 });
 
