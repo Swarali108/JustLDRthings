@@ -20,13 +20,22 @@ import { searchSong } from "@/lib/itunes";
 export const MIXTAPE_MODEL_TIMEOUT_MS = 45_000;
 export const MAX_COMPLETION_TOKENS = 1200;
 
+/** A tape shorter than this is not worth sending, so the run pushes back. */
+export const TARGET_TRACKS = 6;
+/** How many times the server will send the model back for more. */
+export const MAX_NUDGES = 2;
+
 const SYSTEM = `You build a mixtape for someone in a long-distance relationship, from a paragraph their partner wrote.
 
 Rules:
-- Propose between 6 and 10 real, commercially released songs.
-- Call search_song once for every song you propose, before naming it in your final answer. Never propose a song you have not looked up.
-- If search_song says a song was not found, do not use it. Replace it with a different one, or leave it out.
-- Prefer songs that connect to something concrete in the paragraph: a place, a habit, a feeling, an artist or a language they mention.
+- Aim for 8 songs. Your final answer must contain AT LEAST 6 tracks, and every one must have been confirmed found by search_song.
+- Call search_song for every song before naming it. Never name a song you have not looked up.
+- If a song is not found, DO NOT give up on it straight away. Try once more with a different spelling: the full title as it appears on the record, a common transliteration, or the artist's name as the label credits them. Then move on to a different song.
+- Keep looking up new songs until you have at least 6 confirmed ones or you run out of lookups. Do not stop at 3.
+- Use the artist's usual credited name. For older Hindi film songs the playback singer is the artist (Lata Mangeshkar, Mohammed Rafi, Kishore Kumar, Asha Bhosle), not the actor or the composer.
+- Honour EVERY constraint in the paragraph, not just the mood. If they name a decade, the songs must be from that decade. If they name a language, every song must be in it. If they name a subject (the moon, rain, trains), every song must actually be about or clearly reference it.
+- A song that misses a stated constraint is a worse answer than a shorter tape. Do not pad with popular songs that do not fit.
+- Prefer songs that connect to something concrete in the paragraph: a place, a habit, a feeling, an era, a language or an artist they mention.
 - Never invent songs, artists or lyrics.
 
 When you have finished looking songs up, reply with ONLY a JSON object, no prose and no code fence:
@@ -74,6 +83,15 @@ interface ChatResponse {
 
 export type ChatFn = (body: Record<string, unknown>) => Promise<ChatResponse>;
 
+/** One lookup, for the log. The failures are the interesting ones: they say
+ *  what the model keeps proposing that cannot be confirmed. */
+export interface LookupLog {
+  title: string;
+  artist: string;
+  found: boolean;
+  reason: string;
+}
+
 export interface RunStats {
   proposed: number;
   verified: number;
@@ -84,6 +102,9 @@ export interface RunStats {
   completionTokens: number;
   totalTokens: number;
   rounds: number;
+  /** How many times the run sent the model back for more songs. */
+  nudges: number;
+  lookups: LookupLog[];
 }
 
 export type RunResult =
@@ -104,7 +125,9 @@ export async function runMixtape(
   const startedAt = Date.now();
 
   const verified = new Map<string, VerifiedSong>();
-  const attempted = new Set<string>();
+  /** Every lookup already made, so a repeat is answered without spending budget. */
+  const attempted = new Map<string, string>();
+  let nudges = 0;
 
   const stats: RunStats = {
     proposed: 0,
@@ -115,7 +138,9 @@ export async function runMixtape(
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
-    rounds: 0
+    rounds: 0,
+    nudges: 0,
+    lookups: []
   };
 
   const messages: Record<string, unknown>[] = [
@@ -127,18 +152,22 @@ export async function runMixtape(
 
   // Each round is one model turn. The loop ends when the model stops asking for
   // lookups, or when its lookup budget runs out — whichever comes first.
-  for (let round = 0; round < MAX_TOOL_CALLS + 2; round++) {
+  for (let round = 0; round < MAX_TOOL_CALLS + MAX_NUDGES + 2; round++) {
     stats.rounds = round + 1;
 
     const budgetLeft = stats.toolCalls < MAX_TOOL_CALLS;
 
-    const response = await chat({
+    const raw = await chat({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       temperature: 0.8,
       max_tokens: MAX_COMPLETION_TOKENS,
       messages,
       ...(budgetLeft ? { tools: TOOLS, tool_choice: "auto" } : {})
     });
+
+    // A provider that returns nothing usable must end the run, not throw out of
+    // it: this is a network boundary and the body is not ours to trust.
+    const response: ChatResponse = raw ?? {};
 
     stats.promptTokens += response.usage?.prompt_tokens ?? 0;
     stats.completionTokens += response.usage?.completion_tokens ?? 0;
@@ -193,9 +222,38 @@ export async function runMixtape(
         }
 
         const key = songKey(title, artist);
-        attempted.add(key);
+
+        // The model repeats failed lookups — "Dil Dhoondta Hai" twice in one
+        // run — and each repeat used to cost one of twelve chances. Answer
+        // from what we already know and refund the budget.
+        const seen = attempted.get(key);
+        if (seen !== undefined) {
+          stats.toolCalls--;
+          const known = verified.get(key);
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify(
+              known
+                ? { found: true, title: known.title, artist: known.artist, note: "already looked up" }
+                : {
+                    found: false,
+                    reason: seen,
+                    hint: "You already tried this one and it was not found. Choose a different song."
+                  }
+            )
+          });
+          continue;
+        }
 
         const outcome = await searchSong(title, artist, fetchImpl);
+        attempted.set(key, outcome.reason);
+        stats.lookups.push({
+          title,
+          artist,
+          found: outcome.verified,
+          reason: outcome.reason
+        });
 
         if (outcome.verified && outcome.song) {
           verified.set(key, outcome.song);
@@ -206,7 +264,12 @@ export async function runMixtape(
               found: true,
               title: outcome.song.title,
               artist: outcome.song.artist,
-              hasPreview: Boolean(outcome.song.previewUrl)
+              hasPreview: Boolean(outcome.song.previewUrl),
+              ...(outcome.reason === "corrected"
+                ? {
+                    note: `The song is real but the artist you gave ("${outcome.correctedFrom}") was wrong. It is credited to ${outcome.song.artist}. Use that name, and make sure your reason does not say anything about the wrong artist.`
+                  }
+                : {})
             })
           });
         } else {
@@ -247,6 +310,39 @@ export async function runMixtape(
 
     if (mixtape.tracks.length === 0) {
       return { ok: false, error: "none-verified", stats: finish() };
+    }
+
+    /**
+     * Short tape? Send it back rather than accept it.
+     *
+     * The prompt asks for at least six confirmed tracks and the model routinely
+     * answers with three — it looks a few songs up, hits a couple of misses and
+     * calls it done. Asking more firmly in the prompt did not change that, so
+     * the floor is enforced here: while there is lookup budget and a nudge
+     * left, the run says exactly how many it has and sends it back for more.
+     *
+     * The same rule as everywhere else in this feature — the model proposes,
+     * the server decides when it is finished.
+     */
+    if (
+      mixtape.tracks.length < TARGET_TRACKS &&
+      nudges < MAX_NUDGES &&
+      stats.toolCalls < MAX_TOOL_CALLS
+    ) {
+      nudges++;
+      stats.nudges = nudges;
+
+      const have = mixtape.tracks.map((t) => `${t.title} by ${t.artist}`).join("; ");
+      messages.push({ role: "assistant", content: text });
+      messages.push({
+        role: "user",
+        content:
+          `Only ${mixtape.tracks.length} of those were confirmed real, and the tape needs at least ${TARGET_TRACKS}. ` +
+          `Keep these: ${have}. ` +
+          `You have ${MAX_TOOL_CALLS - stats.toolCalls} lookups left — use them to find ${TARGET_TRACKS - mixtape.tracks.length} more songs that fit what they asked for, ` +
+          `then reply with the full JSON including the kept ones. Do not repeat a song that was already not found.`
+      });
+      continue;
     }
 
     return { ok: true, mixtape, stats: finish() };

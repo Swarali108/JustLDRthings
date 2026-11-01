@@ -112,6 +112,10 @@ export async function POST(request: Request) {
       dropped: result.stats.dropped,
       toolCalls: result.stats.toolCalls,
       rounds: result.stats.rounds,
+      nudges: result.stats.nudges,
+      // The misses are the signal worth keeping: they say what the model keeps
+      // proposing that the store cannot confirm.
+      misses: result.stats.lookups.filter((l) => !l.found).map((l) => `${l.title} / ${l.artist} (${l.reason})`),
       latencyMs: result.stats.latencyMs,
       promptTokens: result.stats.promptTokens,
       completionTokens: result.stats.completionTokens,

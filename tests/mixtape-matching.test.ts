@@ -8,6 +8,9 @@ import {
   assembleMixtape,
   safeAppleUrl,
   songKey,
+  youtubeSearchUrl,
+  safeLinkUrl,
+  isPlainRecording,
   type VerifiedSong
 } from "@/lib/mixtape";
 
@@ -89,10 +92,11 @@ describe("findMatch", () => {
     { trackName: "Cruel Summer (Live)", artistName: "Taylor Swift" }
   ];
 
-  it("requires BOTH title and artist, so a cover is not accepted", () => {
+  it("prefers the exact title+artist match over a same-title cover", () => {
     const hit = findMatch("Cruel Summer", "Taylor Swift", results);
-    expect(hit?.artistName).toBe("Taylor Swift");
-    expect(hit?.previewUrl).toContain("audio-ssl.itunes.apple.com");
+    expect(hit?.candidate.artistName).toBe("Taylor Swift");
+    expect(hit?.artistConfirmed).toBe(true);
+    expect(hit?.candidate.previewUrl).toContain("audio-ssl.itunes.apple.com");
   });
 
   it("returns null when nothing matches", () => {
@@ -171,5 +175,130 @@ describe("assembleMixtape", () => {
       verified
     );
     expect(out.tracks).toHaveLength(1);
+  });
+});
+
+/**
+ * The matching was loosened after a tape of real Hindi film songs came back
+ * "1 of 3 verified". These pin both halves: the real songs now pass, and the
+ * things that must still fail still fail.
+ */
+describe("matching real catalogue variations", () => {
+  it("accepts a store title that extends the proposed one", () => {
+    expect(titleMatches("Chaudhvin Ka Chand", "Chaudhvin Ka Chand Ho")).toBe(true);
+    expect(titleMatches("Chura Liya Hai Tumne", "Chura Liya Hai Tumne Jo Dil Ko")).toBe(true);
+  });
+
+  it("accepts an abbreviated first name", () => {
+    expect(artistMatches("Mohammed Rafi", "Mohd. Rafi")).toBe(true);
+    expect(artistMatches("Mohd. Rafi", "Mohammed Rafi")).toBe(true);
+    expect(artistMatches("Mohammad Rafi", "Mohd Rafi")).toBe(true);
+  });
+
+  it("still rejects a short title riding in on a prefix", () => {
+    // Two words is below the floor: "Tum Hi" must not match "Tum Hi Ho Bandhu".
+    expect(titleMatches("Tum Hi", "Tum Hi Ho Bandhu")).toBe(false);
+    expect(titleMatches("Dreams", "Dreams Of Pune Nights")).toBe(false);
+    expect(titleMatches("Lover", "Lover Boy Anthem")).toBe(false);
+  });
+
+  it("still rejects a different surname, however similar the rest", () => {
+    expect(artistMatches("Mohammed Rafi", "Mohammed Aziz")).toBe(false);
+    expect(artistMatches("Kishore Kumar", "Kumar Sanu")).toBe(false);
+    expect(artistMatches("Lata Mangeshkar", "Asha Bhosle")).toBe(false);
+  });
+
+  it("still rejects an invented song that merely starts plausibly", () => {
+    // A hallucination has to match three words exactly, in order, to get in.
+    expect(titleMatches("Chaudhvin Ka Chand Over Pune", "Chaudhvin Ka Chand Ho")).toBe(false);
+    expect(titleMatches("Moonlight Over Pune Nights", "Moonlight Sonata")).toBe(false);
+  });
+
+  /**
+   * CHANGED DELIBERATELY. This used to assert the song was dropped.
+   *
+   * Dropping it meant a real moon song disappeared because the model guessed
+   * the singer wrong, and the user got a three-track tape. A title match
+   * already proves the song exists, so the credit is corrected from the store
+   * instead — the page then shows whoever actually recorded it, which is more
+   * honest than showing nothing.
+   */
+  it("keeps a song whose artist the model got wrong, and corrects the credit", () => {
+    const hit = findMatch("Yeh Chand Sa Roshan Chehra", "Mohammed Rafi", [
+      { trackName: "Yeh Chand Sa Roshan Chehra", artistName: "Rahul Pandey" }
+    ]);
+    expect(hit).not.toBeNull();
+    expect(hit?.artistConfirmed).toBe(false);
+    // The displayed artist is the store's, never the model's guess.
+    expect(hit?.candidate.artistName).toBe("Rahul Pandey");
+  });
+
+  it("corrects a composer credited as the singer", () => {
+    const hit = findMatch("Kabhi Kabhi Aditi", "A. R. Rahman", [
+      { trackName: "Kabhi Kabhi Aditi Zindagi", artistName: "Rashid Ali" }
+    ]);
+    expect(hit?.artistConfirmed).toBe(false);
+    expect(hit?.candidate.artistName).toBe("Rashid Ali");
+  });
+
+  it("STILL drops an invented title, whoever it is credited to", () => {
+    // The protection that matters is untouched: no title match, no song.
+    expect(
+      findMatch("Moonlight Over Pune", "Mohammed Rafi", [
+        { trackName: "Chand Mera Dil", artistName: "Mohd. Rafi" },
+        { trackName: "Chaudhvin Ka Chand Ho", artistName: "Mohd. Rafi" }
+      ])
+    ).toBeNull();
+  });
+});
+
+describe("youtubeSearchUrl", () => {
+  it("builds a search from the verified title and artist", () => {
+    const url = youtubeSearchUrl("Chura Liya Hai Tumne Jo Dil Ko", "Asha Bhosle & Mohd. Rafi");
+    expect(url.startsWith("https://www.youtube.com/results?search_query=")).toBe(true);
+    expect(url).toContain("Chura");
+  });
+
+  it("is accepted by the link check, while other hosts are not", () => {
+    expect(safeLinkUrl(youtubeSearchUrl("a", "b"))).not.toBeNull();
+    expect(safeLinkUrl("https://evil.example.com/x")).toBeNull();
+    expect(safeLinkUrl("javascript:alert(1)")).toBeNull();
+    // The Apple-only check must NOT accept a YouTube url.
+    expect(safeAppleUrl(youtubeSearchUrl("a", "b"))).toBeNull();
+  });
+});
+
+describe("preferring the real record over a re-recording", () => {
+  it("knows a plain title from a re-recording", () => {
+    expect(isPlainRecording("O Mere Dil Ke Chain")).toBe(true);
+    expect(isPlainRecording('Tum Hi Ho (From "Aashiqui 2")')).toBe(true);
+    expect(isPlainRecording("Dekha Ek Khwab - Lofi")).toBe(false);
+    expect(isPlainRecording("Ye Shaam Mastani (Amapiano Mix)")).toBe(false);
+    expect(isPlainRecording("Chura Liya Hai Tumne (Trap Mix)")).toBe(false);
+    expect(isPlainRecording("Dreams - 2004 Remaster")).toBe(false);
+  });
+
+  it("picks the original over a remix listed first", () => {
+    const hit = findMatch("Ye Shaam Mastani", "Kishore Kumar", [
+      { trackName: "Ye Shaam Mastani (Amapiano Mix)", artistName: "Kishore Kumar" },
+      { trackName: "Ye Shaam Mastani", artistName: "Kishore Kumar" }
+    ]);
+    expect(hit?.candidate.trackName).toBe("Ye Shaam Mastani");
+  });
+
+  it("prefers the right artist over a plain-titled cover", () => {
+    const hit = findMatch("Dreams", "Fleetwood Mac", [
+      { trackName: "Dreams", artistName: "Some Cover Band" },
+      { trackName: "Dreams", artistName: "Fleetwood Mac" }
+    ]);
+    expect(hit?.candidate.artistName).toBe("Fleetwood Mac");
+    expect(hit?.artistConfirmed).toBe(true);
+  });
+
+  it("still takes a remix when it is the only thing that exists", () => {
+    const hit = findMatch("Chura Liya Hai Tumne", "Asha Bhosle", [
+      { trackName: "Chura Liya Hai Tumne (Trap Mix)", artistName: "Asha Bhosle" }
+    ]);
+    expect(hit).not.toBeNull();
   });
 });

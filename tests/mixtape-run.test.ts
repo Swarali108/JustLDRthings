@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { runMixtape, type ChatFn } from "@/lib/ai/mixtape-run";
 import { MAX_TOOL_CALLS } from "@/lib/mixtape";
+import { TARGET_TRACKS, MAX_NUDGES } from "@/lib/ai/mixtape-run";
 
 /**
  * The whole run, with a fake model and a fake iTunes.
@@ -36,8 +37,31 @@ function toolCall(id: string, title: string, artist: string) {
 
 const usage = { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 };
 
+/**
+ * A tape under TARGET_TRACKS gets sent back for more, so a mock that only
+ * answers twice runs dry. `final()` is the terminal answer: it is returned for
+ * every turn after the scripted ones, so the run settles once the nudges are
+ * spent.
+ */
+function finalAnswer(
+  tracks: { title: string; artist: string; reason: string }[],
+  title = "T"
+) {
+  return {
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: JSON.stringify({ title, dedication: "d", tracks })
+        }
+      }
+    ],
+    usage
+  };
+}
+
 describe("runMixtape", () => {
-  it("verifies every song, then returns the tape", async () => {
+  it("verifies every song, nudges for a longer tape, then returns it", async () => {
     const chat: ChatFn = vi
       .fn()
       .mockResolvedValueOnce({
@@ -54,24 +78,12 @@ describe("runMixtape", () => {
         ],
         usage
       })
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: JSON.stringify({
-                title: "Monsoon Tape",
-                dedication: "for the rainy season",
-                tracks: [
-                  { title: "Cruel Summer", artist: "Taylor Swift", reason: "the summer we met" },
-                  { title: "Dreams", artist: "Fleetwood Mac", reason: "you played it on the call" }
-                ]
-              })
-            }
-          }
-        ],
-        usage
-      });
+      .mockResolvedValue(
+        finalAnswer([
+          { title: "Cruel Summer", artist: "Taylor Swift", reason: "the summer we met" },
+          { title: "Dreams", artist: "Fleetwood Mac", reason: "you played it on the call" }
+        ], "Monsoon Tape")
+      );
 
     const result = await runMixtape(
       "She loves Fleetwood Mac and we met one summer.",
@@ -89,8 +101,44 @@ describe("runMixtape", () => {
     expect(result.mixtape.title).toBe("Monsoon Tape");
     expect(result.stats.verified).toBe(2);
     expect(result.stats.dropped).toBe(0);
-    expect(result.stats.totalTokens).toBe(300);
     expect(result.stats.toolCalls).toBe(2);
+
+    // Two tracks is under TARGET_TRACKS, so the run sends the model back for
+    // more before settling. Each nudge is another model turn, and the token
+    // total reflects that.
+    expect(result.stats.nudges).toBe(MAX_NUDGES);
+    expect(result.stats.totalTokens).toBe(150 * (2 + MAX_NUDGES));
+  });
+
+  it("does not nudge when the tape is already long enough", async () => {
+    const songs = ["A Song", "B Song", "C Song", "D Song", "E Song", "F Song"];
+    const chat: ChatFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              tool_calls: songs.map((t, i) => toolCall(String(i), t, "Fleetwood Mac"))
+            }
+          }
+        ],
+        usage
+      })
+      .mockResolvedValue(
+        finalAnswer(songs.map((t) => ({ title: t, artist: "Fleetwood Mac", reason: "r" })))
+      );
+
+    const result = await runMixtape(
+      "x".repeat(50),
+      chat,
+      fakeItunes(songs.map((t) => ({ title: t, artist: "Fleetwood Mac" })))
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.mixtape.tracks).toHaveLength(TARGET_TRACKS);
+    expect(result.stats.nudges).toBe(0);
   });
 
   /** The case the whole design exists for. */
@@ -112,24 +160,12 @@ describe("runMixtape", () => {
         usage
       })
       // The model names the fake song anyway, despite being told not to.
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: JSON.stringify({
-                title: "Monsoon Tape",
-                dedication: "for you",
-                tracks: [
-                  { title: "Dreams", artist: "Fleetwood Mac", reason: "real" },
-                  { title: "Moonlight Over Pune", artist: "Fleetwood Mac", reason: "invented" }
-                ]
-              })
-            }
-          }
-        ],
-        usage
-      });
+      .mockResolvedValue(
+        finalAnswer([
+          { title: "Dreams", artist: "Fleetwood Mac", reason: "real" },
+          { title: "Moonlight Over Pune", artist: "Fleetwood Mac", reason: "invented" }
+        ])
+      );
 
     const result = await runMixtape(
       "We met in Pune.",
@@ -151,7 +187,12 @@ describe("runMixtape", () => {
     expect(result.stats.dropped).toBe(1);
   });
 
-  it("drops a cover credited to the wrong artist", async () => {
+  /**
+   * CHANGED DELIBERATELY alongside findMatch: a real song with a wrong credit
+   * is kept and the credit corrected, rather than dropped. See the note in
+   * tests/mixtape-matching.test.ts.
+   */
+  it("keeps a real song the model mis-credited, showing the true artist", async () => {
     const chat: ChatFn = vi
       .fn()
       .mockResolvedValueOnce({
@@ -160,61 +201,73 @@ describe("runMixtape", () => {
         ],
         usage
       })
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: JSON.stringify({
-                title: "T",
-                dedication: "d",
-                tracks: [{ title: "Dreams", artist: "Taylor Swift", reason: "r" }]
-              })
-            }
-          }
-        ],
-        usage
-      });
+      .mockResolvedValue(
+        finalAnswer([{ title: "Dreams", artist: "Taylor Swift", reason: "r" }])
+      );
 
-    // iTunes has "Dreams", but by Fleetwood Mac.
+    // iTunes has "Dreams", but by Fleetwood Mac, not Taylor Swift.
     const result = await runMixtape("x".repeat(50), chat, fakeItunes([
       { title: "Dreams", artist: "Fleetwood Mac" }
     ]));
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error).toBe("none-verified");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.mixtape.tracks).toHaveLength(1);
+    // Shown under the name of whoever really recorded it.
+    expect(result.mixtape.tracks[0].artist).toBe("Fleetwood Mac");
   });
 
   it("stops the model after its lookup budget, and still finishes", async () => {
-    // Asks for 20 lookups in one turn; only MAX_TOOL_CALLS may run.
-    const many = Array.from({ length: 20 }, (_, i) => toolCall(String(i), "Dreams", "Fleetwood Mac"));
+    // Twenty DISTINCT songs in one turn; only MAX_TOOL_CALLS may run.
+    // (Distinct matters: repeats are now served from cache and cost nothing.)
+    const many = Array.from({ length: 20 }, (_, i) =>
+      toolCall(String(i), `Song Number ${i}`, "Fleetwood Mac")
+    );
 
     const chat: ChatFn = vi
       .fn()
       .mockResolvedValueOnce({ choices: [{ message: { role: "assistant", tool_calls: many } }], usage })
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: JSON.stringify({
-                title: "T",
-                dedication: "d",
-                tracks: [{ title: "Dreams", artist: "Fleetwood Mac", reason: "r" }]
-              })
-            }
-          }
-        ],
-        usage
-      });
+      // Names only songs that fit inside the budget, so they verify.
+      .mockResolvedValue(
+        finalAnswer(
+          Array.from({ length: 6 }, (_, i) => ({
+            title: `Song Number ${i}`,
+            artist: "Fleetwood Mac",
+            reason: "r"
+          }))
+        )
+      );
+
+    const itunes = fakeItunes(
+      Array.from({ length: 20 }, (_, i) => ({ title: `Song Number ${i}`, artist: "Fleetwood Mac" }))
+    );
+    const result = await runMixtape("x".repeat(50), chat, itunes);
+
+    expect(result.ok).toBe(true);
+    // The model asked for 20; only MAX_TOOL_CALLS were ever run.
+    expect(result.stats.toolCalls).toBe(MAX_TOOL_CALLS);
+    expect(result.stats.lookups).toHaveLength(MAX_TOOL_CALLS);
+  });
+
+  /**
+   * The model repeats itself — the same failed song twice in one real run —
+   * and each repeat used to burn one of twelve chances.
+   */
+  it("serves a repeated lookup from cache without spending budget", async () => {
+    const same = Array.from({ length: 8 }, (_, i) => toolCall(String(i), "Dreams", "Fleetwood Mac"));
+
+    const chat: ChatFn = vi
+      .fn()
+      .mockResolvedValueOnce({ choices: [{ message: { role: "assistant", tool_calls: same } }], usage })
+      .mockResolvedValue(finalAnswer([{ title: "Dreams", artist: "Fleetwood Mac", reason: "r" }]));
 
     const itunes = fakeItunes([{ title: "Dreams", artist: "Fleetwood Mac" }]);
     const result = await runMixtape("x".repeat(50), chat, itunes);
 
     expect(result.ok).toBe(true);
-    expect(result.stats.toolCalls).toBe(MAX_TOOL_CALLS);
-    expect((itunes as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(MAX_TOOL_CALLS);
+    // Eight asks for one song: one lookup, and one charge against the budget.
+    expect(result.stats.toolCalls).toBe(1);
+    expect(result.stats.lookups).toHaveLength(1);
   });
 
   it("fails cleanly when the model returns something that is not JSON", async () => {
@@ -238,7 +291,8 @@ describe("runMixtape", () => {
         ],
         usage
       })
-      .mockResolvedValueOnce({
+      // Answers every turn after the tool call, so the nudges settle.
+      .mockResolvedValue({
         choices: [
           {
             message: {
@@ -270,21 +324,9 @@ describe("runMixtape", () => {
         ],
         usage
       })
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: JSON.stringify({
-                title: "T",
-                dedication: "d",
-                tracks: [{ title: "Dreams", artist: "Fleetwood Mac", reason: "r" }]
-              })
-            }
-          }
-        ],
-        usage
-      });
+      .mockResolvedValue(
+        finalAnswer([{ title: "Dreams", artist: "Fleetwood Mac", reason: "r" }])
+      );
 
     const result = await runMixtape("x".repeat(50), chat, brokenItunes);
     // Unverifiable is treated exactly like unreal: it does not reach the page.

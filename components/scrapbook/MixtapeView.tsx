@@ -106,7 +106,7 @@ export function MixtapeView({ mixtape, editable = false, onChange }: {
                   onClick={() => toggle(i, track.previewUrl)}
                   aria-label={playing === i ? `Pause ${track.title}` : `Play 30 seconds of ${track.title}`}
                 >
-                  {playing === i ? "❚❚" : "▶"}
+                  {playing === i ? "❚❚" : "♪"}
                 </button>
               ) : (
                 <span className="track-nopreview" title="No preview available">—</span>
@@ -120,7 +120,22 @@ export function MixtapeView({ mixtape, editable = false, onChange }: {
                   className="icon-button"
                   aria-label={`Open ${track.title} in Apple Music`}
                 >
-                  ↗
+                  ♫
+                </a>
+              ) : null}
+
+              {/* A search, not a guarantee the video exists — but for a lot of
+                  older film music it is the only place the full song is. */}
+              {track.youtubeUrl ? (
+                <a
+                  href={track.youtubeUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="icon-button"
+                  aria-label={`Search YouTube for ${track.title}`}
+                  title="Find it on YouTube"
+                >
+                  ▶
                 </a>
               ) : null}
 
