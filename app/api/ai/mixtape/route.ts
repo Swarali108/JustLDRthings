@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimit, LIMITS, tierFor } from "@/lib/rate-limit";
 import { identifyCaller } from "@/lib/ai/caller";
+import { resolveProvider } from "@/lib/ai/provider";
 import { runMixtape, MIXTAPE_MODEL_TIMEOUT_MS, type ChatFn } from "@/lib/ai/mixtape-run";
 
 /**
@@ -21,20 +22,25 @@ const requestSchema = z.object({
 
 /** The model call, with its own timeout. Injected into the run for tests. */
 function openAiChat(apiKey: string): ChatFn {
+  const provider = resolveProvider(apiKey);
+
   return async (body) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), MIXTAPE_MODEL_TIMEOUT_MS);
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch(provider.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(body),
+        headers: provider.headers,
+        // The run asks for a model by one name; the provider decides how that
+        // name is spelled (OpenRouter namespaces it, OpenAI does not).
+        body: JSON.stringify({ ...body, model: provider.model }),
         signal: controller.signal
       });
       if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        console.error(
+          JSON.stringify({ at: "ai.mixtape.upstream", status: res.status, detail: detail.slice(0, 300) })
+        );
         return { error: { message: `upstream ${res.status}` } };
       }
       return await res.json();

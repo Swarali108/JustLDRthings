@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { aiWriteSchema } from "@/lib/validation";
 import { rateLimit, LIMITS, tierFor } from "@/lib/rate-limit";
 import { identifyCaller } from "@/lib/ai/caller";
+import { resolveProvider } from "@/lib/ai/provider";
 
 const SYSTEM: Record<string, string> = {
   note: "You help write a short, warm, sincere note from one partner to another in a long-distance relationship. 1-3 sentences. Tender, specific, not cheesy. No hashtags or emojis unless natural.",
@@ -48,14 +49,12 @@ export async function POST(request: Request) {
   const { kind, prompt } = parsed.data;
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const provider = resolveProvider(apiKey);
+    const res = await fetch(provider.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
+      headers: provider.headers,
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        model: provider.model,
         temperature: 0.8,
         max_tokens: 400,
         messages: [
@@ -71,6 +70,10 @@ export async function POST(request: Request) {
     });
 
     if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error(
+        JSON.stringify({ at: "ai.write.upstream", status: res.status, detail: detail.slice(0, 300) })
+      );
       return NextResponse.json(
         { error: "The writing helper is busy. Try again in a moment." },
         { status: 502 }
