@@ -1091,3 +1091,203 @@
   .avatar-preview { width: 100%; max-width: 140px; }
   .char-editor { grid-template-columns: 1fr; }
 }
+
+/* Two builders side by side: stacked, they filled the screen before the user
+   had typed anything. */
+.avatar-pair {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .avatar-pair { grid-template-columns: 1fr; }
+}
+
+.avatar-pair .avatar-builder { margin-top: 0; }
+
+.comic-empty {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 0;
+}
+
+.comic-empty-cast { display: flex; gap: 18px; }
+.comic-empty-cast .avatar-chip { width: 96px; }
+
+/* --- photo comic ---------------------------------------------------------- */
+
+.consent-list {
+  line-height: 1.7;
+  margin: 14px 0 0;
+  padding-left: 20px;
+}
+
+.consent-list li { margin-bottom: 6px; }
+
+.photo-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  margin-top: 12px;
+}
+
+.photo-thumb {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.photo-thumb img { display: block; height: 100%; object-fit: cover; width: 100%; }
+
+/* The number matters: the storyboard refers to panels "from photo 3". */
+.photo-num {
+  background: rgba(45, 21, 37, 0.78);
+  border-radius: 0 0 8px 0;
+  color: var(--cream);
+  font-family: Inter, sans-serif;
+  font-size: 0.7rem;
+  left: 0;
+  padding: 2px 7px;
+  position: absolute;
+  top: 0;
+}
+
+.name-pair {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 6px;
+}
+
+.story-title {
+  font-family: Caveat, cursive;
+  font-size: 1.3rem;
+  margin-top: 8px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.drawn-comic {
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+/* Cost is shown because this is the one place in the app that spends money
+   per press, and a number nobody can see is a number nobody can control. */
+.cost-note {
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 560px) {
+  .name-pair { grid-template-columns: 1fr; }
+}
+
+/* --- the drawn comic ------------------------------------------------------ */
+
+.comic-page { margin: 0; }
+
+.comic-page-title {
+  font-family: Caveat, cursive;
+  font-size: 1.5rem;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+/* The grid is ours, not the model's: each panel is its own image, so the
+   bubbles can be positioned against a geometry we actually control. */
+.comic-page-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.comic-cell {
+  aspect-ratio: 1;
+  background: var(--mist);
+  border: 2.5px solid #2b2029;
+  border-radius: 4px;
+  container-type: inline-size;
+  overflow: hidden;
+  position: relative;
+}
+
+.cell-art {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.cell-missing {
+  align-items: center;
+  color: var(--mauve);
+  display: flex;
+  font-family: Inter, sans-serif;
+  font-size: 0.75rem;
+  height: 100%;
+  justify-content: center;
+  padding: 10px;
+  text-align: center;
+}
+
+.cell-text {
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  padding: 5%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.cell-bubbles { display: flex; flex-direction: column; gap: 5px; }
+
+.bubble {
+  background: #fdfcfa;
+  border: 1.5px solid #2b2029;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14);
+  color: #2b2029;
+  /* Sized off the panel, not the window, so it keeps its proportion to the
+     drawing however the page is scaled. */
+  font-size: clamp(8px, 4.2cqw, 15px);
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.3;
+  max-width: 80%;
+  padding: 5px 9px;
+  width: fit-content;
+}
+
+.bubble-a { align-self: flex-start; }
+.bubble-b { align-self: flex-end; }
+
+.bubble-narrator {
+  align-self: center;
+  background: rgba(43, 32, 41, 0.9);
+  border: 0;
+  border-radius: 3px;
+  color: #f6f1ea;
+  font-style: italic;
+  max-width: 92%;
+}
+
+.cell-caption {
+  align-self: flex-start;
+  background: rgba(252, 250, 248, 0.94);
+  border: 1px solid #2b2029;
+  border-radius: 2px;
+  color: #2b2029;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: clamp(7px, 3.4cqw, 12px);
+  margin-bottom: 5px;
+  padding: 3px 7px;
+}
+
+@media (max-width: 560px) {
+  .comic-page-grid { grid-template-columns: 1fr !important; }
+}

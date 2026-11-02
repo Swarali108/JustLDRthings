@@ -14,8 +14,7 @@ import {
   doodleItemSchema,
   mixtapeItemSchema,
   poemItemSchema,
-  comicItemSchema,
-  avatarPairSchema
+  comicItemSchema
 } from "@/lib/validation";
 import { styleSchema } from "@/lib/style";
 import type { ContentType, MediaType } from "@/types/db";
@@ -312,44 +311,6 @@ export async function saveComic(_prev: CreateState, formData: FormData): Promise
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
   redirect("/dashboard?created=comic");
-}
-
-/**
- * Remember the two characters, so they do not have to be built again.
- *
- * One row per user, upserted. Guests never reach this — they keep their pair in
- * component state for the visit, which is the same no-storage rule as the rest
- * of guest mode.
- */
-export async function saveAvatars(pair: unknown): Promise<{ error?: string }> {
-  const parsed = avatarPairSchema.safeParse(pair);
-  if (!parsed.success) return { error: "Those characters didn't come through." };
-
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase
-    .from("comic_avatars")
-    .upsert({ owner_id: user.id, pair_json: parsed.data }, { onConflict: "owner_id" });
-
-  if (error) return { error: error.message };
-  return {};
-}
-
-/** The saved pair, or null for a guest / a user who has not built one. */
-export async function loadAvatars(): Promise<unknown | null> {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data } = await supabase
-    .from("comic_avatars")
-    .select("pair_json")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  const parsed = avatarPairSchema.safeParse(data?.pair_json);
-  return parsed.success ? parsed.data : null;
 }
 
 // ---- Media / voice / collage (multi-step: client uploads between calls) ----

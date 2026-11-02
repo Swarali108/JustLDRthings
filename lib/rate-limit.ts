@@ -101,9 +101,18 @@ export const LIMITS = {
   },
   // One model call, occasionally two when a script fails validation. Bigger
   // output than a poem, so a little tighter.
-  comic: {
-    signedIn: { limit: 8, windowMs: 10 * 60_000 },
-    guest: { limit: 3, windowMs: 60 * 60_000 }
+  // Reading photos and writing a script: cheap, so drafts are nearly free and
+  // the user can rewrite the story until it is right.
+  comicStoryboard: {
+    signedIn: { limit: 12, windowMs: 10 * 60_000 },
+    guest: { limit: 4, windowMs: 60 * 60_000 }
+  },
+  // Drawing the page costs about $0.04 each time. This is the tightest limit
+  // in the app and it is tight on purpose: it is the only route that spends
+  // real money per request, and a guest bucket is an IP, which is weak.
+  comicDraw: {
+    signedIn: { limit: 4, windowMs: 30 * 60_000 },
+    guest: { limit: 2, windowMs: 24 * 60 * 60_000 }
   }
 } as const;
 

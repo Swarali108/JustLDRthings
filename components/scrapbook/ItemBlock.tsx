@@ -4,8 +4,8 @@ import { BouquetView } from "@/components/scrapbook/BouquetView";
 import { DoodleView } from "@/components/scrapbook/DoodleView";
 import { MixtapeView } from "@/components/scrapbook/MixtapeView";
 import { PoemView } from "@/components/scrapbook/PoemView";
-import { ComicView } from "@/components/comic/ComicView";
-import { comicSchema } from "@/lib/comic";
+import { photoComicSchema } from "@/lib/photo-comic";
+import { ComicPage } from "@/components/comic/ComicPage";
 import { poemSchema } from "@/lib/poem";
 import { mixtapeSchema } from "@/lib/mixtape";
 import { doodleSchema } from "@/lib/doodle";
@@ -191,12 +191,19 @@ function Body({
 
     case "comic": {
       // Re-validated at render: this payload may have come from a URL.
-      const strip = comicSchema.safeParse(item.payload.comic);
+      const strip = photoComicSchema.safeParse(item.payload.comic);
+      // The drawn page is an image: a signed storage url for a saved comic, or
+      // a data uri while it is still a draft.
+      const panelImages = strip.success
+        ? strip.data.images.length
+          ? strip.data.images
+          : item.media.map((m) => m.url)
+        : [];
       return (
         <article className="block styled-block">
           <Stickers stickers={stickers} />
-          {strip.success ? (
-            <ComicView comic={strip.data} />
+          {strip.success && panelImages.some(Boolean) ? (
+            <ComicPage images={panelImages} storyboard={strip.data.storyboard} />
           ) : (
             <span className="paper-placeholder">This comic didn&apos;t come through</span>
           )}

@@ -147,8 +147,11 @@ create table if not exists public.page_shares (
 create index if not exists page_shares_page_idx on public.page_shares (page_id);
 
 -- ---------------------------------------------------------------------------
--- comic_avatars -- the two characters a user draws their comics with.
--- One row per user: they are built once and reused, not per comic.
+-- comic_avatars -- NOT CURRENTLY USED.
+-- Held the two SVG characters a user drew their comics with, before the comic
+-- creator moved to drawing from real photographs. Kept because dropping a table
+-- is irreversible and this one is empty and harmless; delete it if the avatar
+-- approach is not coming back.
 -- ---------------------------------------------------------------------------
 create table if not exists public.comic_avatars (
   owner_id   uuid primary key references auth.users (id) on delete cascade,
