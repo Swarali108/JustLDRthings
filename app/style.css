@@ -937,3 +937,157 @@
 
 .detail-unused { opacity: 0.55; }
 .detail-used span { color: var(--burgundy); }
+
+/* --- comic ---------------------------------------------------------------- */
+
+.comic-title {
+  font-family: Caveat, cursive;
+  font-size: 1.4rem;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.comic-grid {
+  display: grid;
+  gap: 8px;
+}
+
+/* Two panels read as a before/after, so they stay side by side; four and six
+   form a page. One column on a phone, where side-by-side dialogue is unreadable. */
+.comic-2 .comic-grid,
+.comic-4 .comic-grid,
+.comic-6 .comic-grid { grid-template-columns: 1fr 1fr; }
+
+@media (max-width: 560px) {
+  .comic-2 .comic-grid,
+  .comic-4 .comic-grid,
+  .comic-6 .comic-grid { grid-template-columns: 1fr; }
+}
+
+.comic-panel {
+  background: var(--white);
+  border-radius: 4px;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+/* --- avatar builder ------------------------------------------------------- */
+
+.avatar-builder {
+  align-items: flex-start;
+  border: 1px solid rgba(140, 101, 124, 0.25);
+  border-radius: 14px;
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.avatar-preview {
+  flex: none;
+  text-align: center;
+  width: 108px;
+}
+
+.avatar-preview svg {
+  background: var(--mist);
+  border-radius: 12px;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.avatar-name {
+  font-size: 0.82rem;
+  margin-top: 8px;
+  padding: 5px 8px;
+  text-align: center;
+  width: 100%;
+}
+
+.avatar-options { flex: 1; min-width: 0; }
+
+.swatch-chip {
+  border: 2px solid rgba(45, 21, 37, 0.18);
+  border-radius: 50%;
+  cursor: pointer;
+  height: 26px;
+  padding: 0;
+  width: 26px;
+}
+
+.swatch-chip[aria-pressed="true"] {
+  border-color: var(--aubergine);
+  box-shadow: 0 0 0 3px rgba(67, 24, 44, 0.22);
+}
+
+.avatar-row { display: flex; gap: 14px; margin-top: 10px; }
+
+.avatar-chip {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+}
+
+.avatar-chip svg {
+  background: var(--mist);
+  border-radius: 10px;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.avatar-chip small {
+  color: var(--mauve);
+  font-family: Inter, sans-serif;
+  font-size: 0.72rem;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+}
+
+/* --- panel editor --------------------------------------------------------- */
+
+.panel-editor {
+  border: 1px solid rgba(140, 101, 124, 0.22);
+  border-radius: 12px;
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.panel-editor select,
+.line-editor input {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.mini-label {
+  color: var(--mauve);
+  display: block;
+  font-family: Inter, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  margin-top: 10px;
+  text-transform: uppercase;
+}
+
+.char-editor {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.char-editor .mini-label { grid-column: 1 / -1; }
+
+@media (max-width: 560px) {
+  .avatar-builder { flex-direction: column; }
+  .avatar-preview { width: 100%; max-width: 140px; }
+  .char-editor { grid-template-columns: 1fr; }
+}

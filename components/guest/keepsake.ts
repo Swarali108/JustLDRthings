@@ -11,6 +11,10 @@ import { ENVELOPE_SKINS, type EnvelopeId } from "@/lib/envelope";
 import { COUPON_SKINS, type CouponDesign } from "@/lib/coupon-designs";
 import type { Mixtape } from "@/lib/mixtape";
 import type { Poem } from "@/lib/poem";
+import type { Comic } from "@/lib/comic";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { ComicPanel } from "@/components/comic/ComicPanel";
 import {
   BQ,
   fanOut,
@@ -49,7 +53,7 @@ import {
 export const KEEPSAKE_MEDIA_LIMIT = 4 * 1024 * 1024;
 
 export interface KeepsakeBlock {
-  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape" | "poem";
+  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape" | "poem" | "comic";
   title?: string;
   body?: string;
   paper?: PaperChoice;
@@ -59,6 +63,7 @@ export interface KeepsakeBlock {
   design?: CouponDesign;
   mixtape?: Mixtape;
   poem?: Poem;
+  comic?: Comic;
   url?: string;
   note?: string;
   couponText?: string;
@@ -321,8 +326,40 @@ function renderPoem(block: KeepsakeBlock, style: ItemStyle): string {
 </article>`;
 }
 
+/**
+ * A comic offline.
+ *
+ * The panels are the SAME React components the app draws, rendered to static
+ * markup here rather than re-implemented as strings. Hand-writing a second copy
+ * of the character and background art would be hundreds of lines that could
+ * silently drift from the real thing — the keepsake would quietly stop looking
+ * like what was made.
+ *
+ * It works because every panel is pure SVG with no state and no browser APIs,
+ * so static markup is the whole of it.
+ */
+function renderComic(block: KeepsakeBlock, style: ItemStyle): string {
+  const comic = block.comic;
+  if (!comic) return "";
+
+  const panels = comic.panels
+    .map((panel, i) =>
+      renderToStaticMarkup(
+        createElement(ComicPanel, { panel, avatars: comic.avatars, index: i })
+      )
+    )
+    .join("");
+
+  return `<article class="block" style="${blockAttrs(style)}">
+  ${renderStickers(style)}
+  <h3>${esc(comic.title)}</h3>
+  <div class="comic comic-${comic.panels.length}">${panels}</div>
+</article>`;
+}
+
 function renderBlock(block: KeepsakeBlock): string {
   const style = block.style || DEFAULT_STYLE;
+  if (block.kind === "comic") return renderComic(block, style);
   if (block.kind === "poem") return renderPoem(block, style);
   if (block.kind === "mixtape") return renderMixtape(block, style);
   if (block.kind === "doodle") return renderDoodle(block, style);
@@ -471,6 +508,9 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
   .tracks .n { opacity:.5; min-width:18px; }
   .tracks em { font-size:.85rem; opacity:.75; }
   .verse { white-space: pre-wrap; line-height: 1.75; margin: 10px 0 0; }
+  .comic { display: grid; gap: 8px; margin-top: 12px; }
+  .comic-4, .comic-6 { grid-template-columns: 1fr 1fr; }
+  .comic svg { display: block; width: 100%; height: auto; border-radius: 4px; }
   .sheet { border-radius: 12px; padding: 20px 22px; }
   .sheet h3 { margin: 0 0 8px; }
   .env { display: block; width: 62%; margin: 0 auto 14px; }
@@ -567,6 +607,8 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
       return { kind: "mixtape", title: item.title, mixtape: p.mixtape, style };
     case "poem":
       return { kind: "poem", title: item.title, poem: p.poem, style };
+    case "comic":
+      return { kind: "comic", title: item.title, comic: p.comic, style };
     case "coupon":
       return {
         kind: "coupon",

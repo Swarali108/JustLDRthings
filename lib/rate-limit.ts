@@ -98,6 +98,12 @@ export const LIMITS = {
   poem: {
     signedIn: { limit: 10, windowMs: 10 * 60_000 },
     guest: { limit: 4, windowMs: 60 * 60_000 }
+  },
+  // One model call, occasionally two when a script fails validation. Bigger
+  // output than a poem, so a little tighter.
+  comic: {
+    signedIn: { limit: 8, windowMs: 10 * 60_000 },
+    guest: { limit: 3, windowMs: 60 * 60_000 }
   }
 } as const;
 

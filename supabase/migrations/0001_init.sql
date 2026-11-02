@@ -81,7 +81,7 @@ create table if not exists public.content_items (
   id           uuid primary key default gen_random_uuid(),
   owner_id     uuid not null references auth.users (id) on delete cascade,
   type         text not null check (type in
-                 ('note', 'letter', 'song', 'coupon', 'media', 'voice', 'doodle', 'bouquet', 'collage', 'mixtape', 'poem')),
+                 ('note', 'letter', 'song', 'coupon', 'media', 'voice', 'doodle', 'bouquet', 'collage', 'mixtape', 'poem', 'comic')),
   title        text not null default '',
   payload_json jsonb not null default '{}'::jsonb,
   created_at   timestamptz not null default now(),
@@ -146,6 +146,21 @@ create table if not exists public.page_shares (
 );
 create index if not exists page_shares_page_idx on public.page_shares (page_id);
 
+-- ---------------------------------------------------------------------------
+-- comic_avatars -- the two characters a user draws their comics with.
+-- One row per user: they are built once and reused, not per comic.
+-- ---------------------------------------------------------------------------
+create table if not exists public.comic_avatars (
+  owner_id   uuid primary key references auth.users (id) on delete cascade,
+  pair_json  jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists comic_avatars_set_updated_at on public.comic_avatars;
+create trigger comic_avatars_set_updated_at
+  before update on public.comic_avatars
+  for each row execute function public.set_updated_at();
+
 -- ===========================================================================
 -- Row Level Security
 -- ===========================================================================
@@ -156,6 +171,7 @@ alter table public.page_items    enable row level security;
 alter table public.media_assets  enable row level security;
 alter table public.coupons       enable row level security;
 alter table public.page_shares   enable row level security;
+alter table public.comic_avatars enable row level security;
 
 -- profiles: a user sees & edits only their own profile.
 drop policy if exists "profiles: select own" on public.profiles;
@@ -209,6 +225,11 @@ create policy "page_shares: owner all" on public.page_shares
   ) with check (
     exists (select 1 from public.pages p where p.id = page_id and p.owner_id = auth.uid())
   );
+
+-- comic_avatars: owner-only, like every other piece of user data.
+drop policy if exists "comic_avatars: owner all" on public.comic_avatars;
+create policy "comic_avatars: owner all" on public.comic_avatars
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 -- ===========================================================================
 -- Recipient access (anonymous) via SECURITY DEFINER functions only.

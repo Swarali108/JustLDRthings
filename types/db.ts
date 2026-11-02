@@ -13,7 +13,8 @@ export type ContentType =
   | "bouquet"
   | "collage"
   | "mixtape"
-  | "poem";
+  | "poem"
+  | "comic";
 
 export type PageStatus = "draft" | "published";
 export type MediaType = "image" | "video" | "audio";
@@ -70,6 +71,13 @@ export interface Coupon {
   coupon_text: string;
   expires_at: string | null;
   redeemed_at: string | null;
+}
+
+/** The two characters a user draws their comics with. One row per user. */
+export interface ComicAvatars {
+  owner_id: string;
+  pair_json: Record<string, unknown>;
+  updated_at: string;
 }
 
 export interface PageShare {

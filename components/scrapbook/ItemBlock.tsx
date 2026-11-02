@@ -4,6 +4,8 @@ import { BouquetView } from "@/components/scrapbook/BouquetView";
 import { DoodleView } from "@/components/scrapbook/DoodleView";
 import { MixtapeView } from "@/components/scrapbook/MixtapeView";
 import { PoemView } from "@/components/scrapbook/PoemView";
+import { ComicView } from "@/components/comic/ComicView";
+import { comicSchema } from "@/lib/comic";
 import { poemSchema } from "@/lib/poem";
 import { mixtapeSchema } from "@/lib/mixtape";
 import { doodleSchema } from "@/lib/doodle";
@@ -183,6 +185,21 @@ function Body({
             <span className="paper-placeholder">This drawing didn&apos;t come through</span>
           )}
           {p.note ? <p className="block-body">{p.note}</p> : null}
+        </article>
+      );
+    }
+
+    case "comic": {
+      // Re-validated at render: this payload may have come from a URL.
+      const strip = comicSchema.safeParse(item.payload.comic);
+      return (
+        <article className="block styled-block">
+          <Stickers stickers={stickers} />
+          {strip.success ? (
+            <ComicView comic={strip.data} />
+          ) : (
+            <span className="paper-placeholder">This comic didn&apos;t come through</span>
+          )}
         </article>
       );
     }

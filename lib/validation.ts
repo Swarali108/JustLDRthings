@@ -10,6 +10,8 @@ import {
 import { doodleSchema } from "@/lib/doodle";
 import { mixtapeSchema } from "@/lib/mixtape";
 import { poemSchema } from "@/lib/poem";
+import { comicSchema } from "@/lib/comic";
+import { avatarPairSchema } from "@/lib/avatar";
 import { paperChoiceSchema } from "@/lib/paper";
 import { envelopeSchema, sealSchema } from "@/lib/envelope";
 import { couponDesignSchema } from "@/lib/coupon-designs";
@@ -132,6 +134,14 @@ export const poemItemSchema = z.object({
   poem: poemSchema,
   style: styleSchema.optional()
 });
+
+export const comicItemSchema = z.object({
+  title: z.string().trim().max(120).optional().default(""),
+  comic: comicSchema,
+  style: styleSchema.optional()
+});
+
+export { avatarPairSchema };
 
 export const aiWriteSchema = z.object({
   kind: z.enum(["note", "letter", "caption", "coupon"]),
