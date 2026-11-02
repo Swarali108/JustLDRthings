@@ -1208,7 +1208,12 @@
 }
 
 .comic-cell {
-  aspect-ratio: 1;
+  /* Matches what the illustrator returns (1376x768, 16:9). The cell is a fixed
+     ratio so the grid stays tidy whatever comes back, and object-fit: cover
+     covers the difference — but the ratio has to be close to the real one or
+     cover crops hard. At aspect-ratio: 1 it was cutting 44% off the width of
+     every panel, which took the second person out of some of them. */
+  aspect-ratio: 16 / 9;
   background: var(--mist);
   border: 2.5px solid #2b2029;
   border-radius: 4px;
@@ -1290,4 +1295,39 @@
 
 @media (max-width: 560px) {
   .comic-page-grid { grid-template-columns: 1fr !important; }
+}
+
+/* A panel's own redraw control. Deliberately small and tucked into the corner:
+   it spends money, so it should be reachable but never the obvious thing to
+   press. Appears on hover or keyboard focus, and stays visible on touch where
+   there is no hover to reveal it. */
+.comic-cell { position: relative; }
+
+.cell-redraw {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  z-index: 3;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--plum, #4a2230);
+  background: rgba(255, 253, 250, 0.92);
+  border: 1px solid rgba(74, 34, 48, 0.25);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.comic-cell:hover .cell-redraw,
+.cell-redraw:focus-visible { opacity: 1; }
+
+.cell-redraw:hover { background: #fff; }
+
+.cell-redraw:disabled { cursor: default; opacity: 0.5; }
+
+@media (hover: none) {
+  .cell-redraw { opacity: 1; }
 }

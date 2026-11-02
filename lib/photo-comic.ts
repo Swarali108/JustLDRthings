@@ -70,6 +70,16 @@ export const FREEDOM_BRIEFS: Record<Freedom, string> = {
 export const PANEL_COUNTS = [4, 6, 8] as const;
 export type PanelCount = (typeof PANEL_COUNTS)[number];
 
+/**
+ * What one drawn panel costs, roughly, in US dollars.
+ *
+ * Observed, not quoted: a four-panel run billed $0.1559, and the model prices
+ * image output per token at a flat rate for a 1024px image. Used only to show
+ * the user a price BEFORE they commit to a draw — the real figure always comes
+ * back from the API and is what gets added to the running total.
+ */
+export const APPROX_PANEL_COST_USD = 0.039;
+
 export const MIN_PHOTOS = 2;
 export const MAX_PHOTOS = 6;
 /** Longest edge after client-side resizing, before upload. */
@@ -174,6 +184,10 @@ export function buildPanelPrompt(
   const B = names.b || "the second person";
 
   return `Draw ONE single comic panel. Not a page, not a grid — one rectangular panel, filling the whole image edge to edge.
+
+SHAPE
+A wide landscape panel, about 16:9. Compose for that shape: keep the faces and
+the action near the middle, because the far left and right edges may be cropped.
 
 STYLE
 ${ART_STYLE_BRIEFS[style]}

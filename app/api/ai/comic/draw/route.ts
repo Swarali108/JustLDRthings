@@ -106,9 +106,15 @@ export async function POST(request: Request) {
   );
 
   if (!result.ok) {
-    if (result.error === "no-credit") {
+    // Deliberately does not name the cause. To the visitor "out of credit" and
+    // "the key's spend cap is too low" are the same thing — something off their
+    // side, that they cannot act on. Naming it wrongly sends the operator
+    // chasing the wrong fix, which is exactly what happened: the real cause was
+    // a $1 cap on the key, not an empty account. The precise reason goes to the
+    // server log, where the person who can fix it will read it.
+    if (result.error === "budget") {
       return NextResponse.json(
-        { error: "Drawing is out of credit right now — nothing you did. Try again later. ♡" },
+        { error: "Drawing is unavailable right now — nothing you did. Try again later. ♡" },
         { status: 503 }
       );
     }

@@ -15,6 +15,7 @@ import {
   MAX_PHOTOS,
   PHOTO_MAX_EDGE,
   MAX_DIALOGUE_CHARS,
+  APPROX_PANEL_COST_USD,
   type Storyboard,
   type ArtStyle,
   type Freedom,
@@ -76,8 +77,19 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [drawn, setDrawn] = useState<string[] | null>(null);
   const [spent, setSpent] = useState(0);
+  /**
+   * The art style the current images were drawn in.
+   *
+   * Needed to tell "these panels are still missing" apart from "these panels
+   * are in a style you have since changed your mind about". Without it, trying
+   * one panel, switching style and pressing draw would leave the test panel in
+   * the old style in the middle of a page in the new one.
+   */
+  const [drawnStyle, setDrawnStyle] = useState<ArtStyle | null>(null);
 
-  const [busy, setBusy] = useState<"" | "reading" | "drawing">("");
+  // `panel-N` means that one panel is being redrawn on its own, which needs to
+  // be distinguishable from a full draw so only that cell shows as busy.
+  const [busy, setBusy] = useState<"" | "reading" | "drawing" | `panel-${number}`>("");
   const [error, setError] = useState("");
   const [style, setStyle] = useState<ItemStyle>(DEFAULT_STYLE);
   const [guest, setGuest] = useState<{ title: string; blocks: KeepsakeBlock[] } | null>(null);
@@ -172,10 +184,20 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
     }
   }
 
-  async function draw() {
+  /**
+   * Draw panels. `only` restricts it to those indexes.
+   *
+   * This is the one action in the app that spends real money, and the amount
+   * scales with how many panels it covers. Redrawing one disappointing panel
+   * costs about $0.04; redrawing the whole comic to fix that one panel costs
+   * four times as much for three images that were already fine. So results are
+   * MERGED into what is already drawn rather than replacing it, which is what
+   * makes a single-panel redraw possible at all.
+   */
+  async function draw(only?: number[]) {
     if (!storyboard) return;
     setError("");
-    setBusy("drawing");
+    setBusy(only?.length === 1 ? `panel-${only[0]}` : "drawing");
     try {
       const res = await fetch("/api/ai/comic/draw", {
         method: "POST",
@@ -185,7 +207,8 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
           photos: photos.map((p) => ({ dataUrl: p.dataUrl })),
           style: art,
           names,
-          consent: true
+          consent: true,
+          ...(only?.length ? { only } : {})
         })
       });
       const data = await res.json();
@@ -193,14 +216,40 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
         setError(data?.error || "Drawing failed.");
         return;
       }
-      setDrawn(data.images);
+
+      // The API answers with a full-length array where panels it did not draw
+      // are "". Keeping the old image for those is what stops a one-panel
+      // redraw from blanking the other three.
+      setDrawn((prev) => {
+        const incoming: string[] = data.images ?? [];
+        if (!prev) return incoming;
+        return incoming.map((img, i) => img || prev[i] || "");
+      });
       setSpent((s) => s + (data.stats?.costUsd ?? 0));
+      setDrawnStyle(art);
     } catch {
       setError("Couldn't reach the illustrator.");
     } finally {
       setBusy("");
     }
   }
+
+  /**
+   * Which panels the main button should draw.
+   *
+   * Only the ones that are actually missing — after trying a single panel, the
+   * rest of the page costs the rest of the page, not the whole thing again.
+   *
+   * Unless the style has changed since those panels were drawn, in which case
+   * every panel genuinely does need redrawing or the page comes out in two
+   * different styles.
+   */
+  const all = storyboard ? storyboard.panels.map((_, i) => i) : [];
+  const missing = drawn ? all.filter((i) => !drawn[i]) : all;
+  const styleChanged = Boolean(drawn) && drawnStyle !== art;
+  // Nothing missing and the style still matches? Then the button means "do the
+  // whole thing over" — the only reading left — rather than going dead.
+  const toDraw = styleChanged || missing.length === 0 ? all : missing;
 
   function editPanel(i: number, patch: Partial<Storyboard["panels"][number]>) {
     if (!storyboard) return;
@@ -496,14 +545,51 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
               </div>
             </div>
 
+            {/*
+              Two buttons, because the style is the thing most likely to be
+              wrong and the most expensive thing to discover late. Drawing one
+              panel first costs about a quarter of a full four-panel page, and
+              it shows the art style AND whether the faces came through — which
+              is everything you would learn from the full page.
+            */}
             <div className="row-actions" style={{ marginTop: 14 }}>
-              <button type="button" className="button button-plum" onClick={draw} disabled={Boolean(busy)}>
-                {busy === "drawing" ? "Drawing…" : drawn ? "Draw it again" : "Draw it ♡"}
+              <button
+                type="button"
+                className="button button-plum"
+                onClick={() => void draw(toDraw)}
+                disabled={Boolean(busy)}
+              >
+                {busy === "drawing"
+                  ? "Drawing…"
+                  : `${
+                      !drawn
+                        ? "Draw it"
+                        : toDraw.length < all.length
+                          ? `Draw the other ${toDraw.length}`
+                          : styleChanged
+                            ? "Redraw in this style"
+                            : "Draw them all again"
+                    } · about $${(toDraw.length * APPROX_PANEL_COST_USD).toFixed(2)} ♡`}
               </button>
-              <small style={{ color: "var(--mauve)" }}>
-                Takes about 30 seconds.
-              </small>
+
+              {!drawn ? (
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  onClick={() => void draw([0])}
+                  disabled={Boolean(busy)}
+                  title="Draw only the first panel, to check the style before paying for the rest"
+                >
+                  {busy === "panel-0"
+                    ? "Trying…"
+                    : `Try one panel first · $${APPROX_PANEL_COST_USD.toFixed(2)}`}
+                </button>
+              ) : null}
             </div>
+
+            <small style={{ color: "var(--mauve)", display: "block", marginTop: 6 }}>
+              About 30 seconds. Editing the story above is free — only drawing costs.
+            </small>
 
             {busy === "drawing" ? (
               <p className="form-notice">
@@ -555,7 +641,15 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
           <div className={styleClasses(style)}>
             <div className="styled-block" style={tiltStyle(style)}>
               {drawn && storyboard ? (
-                <ComicPage images={drawn} storyboard={storyboard} names={names} />
+                <ComicPage
+                  images={drawn}
+                  storyboard={storyboard}
+                  names={names}
+                  onRedraw={(i) => void draw([i])}
+                  redrawing={
+                    busy.startsWith("panel-") ? Number(busy.slice(6)) : null
+                  }
+                />
               ) : (
                 <span className="paper-placeholder">
                   {storyboard

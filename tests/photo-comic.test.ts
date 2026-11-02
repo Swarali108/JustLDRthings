@@ -138,13 +138,13 @@ describe("runDraw", () => {
   const names = { a: "Sid", b: "Meera" };
 
   /** A chat that answers each call from a queue of outcomes. */
-  function fakeChat(outcomes: ("image" | "billing" | "fail")[]) {
+  function fakeChat(outcomes: ("image" | "budget" | "fail")[]) {
     let n = 0;
     const seen: unknown[] = [];
     const chat = async (body: Record<string, unknown>) => {
       seen.push(body);
       const outcome = outcomes[n++] ?? "image";
-      if (outcome === "billing") return { error: { message: "billing" } };
+      if (outcome === "budget") return { error: { message: "budget" } };
       if (outcome === "fail") return { error: { message: "upstream 500" } };
       return {
         choices: [{ message: { images: [{ image_url: { url: "data:image/png;base64,ZZZ" } }] } }],
@@ -203,14 +203,14 @@ describe("runDraw", () => {
     expect(result.images[1]).toBe("");
   });
 
-  it("reports running out of credit as its own failure, not a retryable one", async () => {
-    const { chat } = fakeChat(["billing", "billing"]);
+  it("reports a spending block as its own failure, not a retryable one", async () => {
+    const { chat } = fakeChat(["budget", "budget"]);
     const result = await runDraw(board, photos, "warm-comic", names, chat);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     // 402 is not transient. Telling the user to try again would be false advice.
-    expect(result.error).toBe("no-credit");
+    expect(result.error).toBe("budget");
   });
 
   it("fails with no-image when the model simply returns nothing", async () => {

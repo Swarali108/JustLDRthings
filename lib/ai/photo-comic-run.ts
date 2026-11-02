@@ -287,10 +287,10 @@ export async function runDraw(
 
   // Every panel failing is a failure; one failing is a gap the user can redraw.
   if (stats.drawn === 0) {
-    // Out of credit is reported separately because it is the one failure here
-    // that no retry fixes, and the owner — not the user — has to act on it.
-    const billing = results.some((r) => r.reason === "billing");
-    return { ok: false, error: billing ? "no-credit" : "no-image", stats: finish() };
+    // A spending block is reported separately because it is the one failure
+    // here that no retry fixes, and the operator — not the user — has to act.
+    const blocked = results.some((r) => r.reason === "budget");
+    return { ok: false, error: blocked ? "budget" : "no-image", stats: finish() };
   }
 
   return { ok: true, images, stats: finish() };

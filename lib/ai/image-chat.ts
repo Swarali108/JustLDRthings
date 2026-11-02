@@ -30,12 +30,25 @@ export function modelChat(apiKey: string, model: string, timeoutMs: number): Cha
         console.error(
           JSON.stringify({ at: "ai.image-chat.upstream", model, status: res.status, detail: detail.slice(0, 300) })
         );
-        // 402 is worth naming rather than folding into a generic failure. It is
-        // not a transient error and no retry or restyle will clear it: the
-        // account is out of credit, and OpenRouter additionally refuses image
-        // output below a $1 balance. Telling the user to "try again" there is
-        // advice that cannot work.
-        return { error: { message: res.status === 402 ? "billing" : `upstream ${res.status}` } };
+        // 402 is worth naming rather than folding into a generic failure. No
+        // retry or restyle clears it, and only the operator can act on it.
+        //
+        // It does NOT necessarily mean the account is out of money. OpenRouter
+        // refuses image output unless at least $1 remains in the *key's* own
+        // budget, so a key with a $1 cap stops drawing once ~$0.35 is spent
+        // while the account still holds credit. The remedy is usually to raise
+        // or remove the key's limit, not to buy more credit — so the detail
+        // above is logged in full, because it carries that distinction.
+        if (res.status === 402) {
+          console.error(
+            JSON.stringify({
+              at: "ai.image-chat.budget",
+              hint: "Image output needs >= $1 remaining on the KEY's budget. Check the key's spend limit at openrouter.ai/settings/keys before adding credit."
+            })
+          );
+          return { error: { message: "budget" } };
+        }
+        return { error: { message: `upstream ${res.status}` } };
       }
       return await res.json();
     } catch (error) {
@@ -49,5 +62,20 @@ export function modelChat(apiKey: string, model: string, timeoutMs: number): Cha
 
 /** Reads photographs and writes the script. Cheap and fast. */
 export const VISION_MODEL = process.env.COMIC_VISION_MODEL || "google/gemini-2.5-flash";
-/** Draws the page. ~$0.04 a call. */
-export const IMAGE_MODEL = process.env.COMIC_IMAGE_MODEL || "google/gemini-2.5-flash-image";
+/**
+ * Draws one panel. ~$0.04 a call.
+ *
+ * Nano Banana 2.1 rather than the 2.5-flash-image it replaced: OpenRouter
+ * prices both image outputs identically ($0.00003 a token, so ~$0.039 for a
+ * 1024px panel), and the newer model follows instructions more closely — which
+ * is the open complaint against the old one, since it kept drawing internal
+ * borders and sub-panels it had been told not to draw.
+ *
+ * Overridable, because this is exactly the sort of choice that dates. The
+ * tiers available, per 1024px panel:
+ *   gemini-3.1-flash-lite-image  ~$0.039   same price, lite
+ *   gemini-nano-banana-2.1       ~$0.039   same price   <- default
+ *   gemini-3.1-flash-image       ~$0.077   2x
+ *   gemini-3-pro-image           ~$0.155   4x, best quality
+ */
+export const IMAGE_MODEL = process.env.COMIC_IMAGE_MODEL || "google/gemini-nano-banana-2.1";

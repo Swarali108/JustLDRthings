@@ -19,12 +19,21 @@ import { gridFor, type Storyboard } from "@/lib/photo-comic";
 export function ComicPage({
   images,
   storyboard,
-  names
+  names,
+  onRedraw,
+  redrawing
 }: {
   /** One drawn image per panel, in order. "" marks one that failed. */
   images: string[];
   storyboard: Storyboard;
   names?: { a: string; b: string };
+  /**
+   * Redraw a single panel. Optional because this component also renders saved
+   * and shared comics, where there is nothing to redraw and no key to spend.
+   */
+  onRedraw?: (index: number) => void;
+  /** Index currently being redrawn, if any. */
+  redrawing?: number | null;
 }) {
   const { cols } = gridFor(storyboard.panels.length);
 
@@ -44,6 +53,24 @@ export function ComicPage({
             ) : (
               <span className="cell-missing">This panel didn&apos;t draw</span>
             )}
+
+            {/*
+              One panel is redrawn on its own for about $0.04. Redrawing the
+              whole page to fix one panel pays again for every panel that was
+              already right, so this button is the difference between a cheap
+              correction and an expensive one.
+            */}
+            {onRedraw ? (
+              <button
+                type="button"
+                className="cell-redraw"
+                onClick={() => onRedraw(i)}
+                disabled={redrawing !== null && redrawing !== undefined}
+                title={`Redraw only panel ${i + 1} (about $0.04)`}
+              >
+                {redrawing === i ? "…" : images[i] ? "Redraw" : "Try again"}
+              </button>
+            ) : null}
 
             <div className="cell-text">
               {panel.caption ? <span className="cell-caption">{panel.caption}</span> : null}
