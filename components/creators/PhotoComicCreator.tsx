@@ -45,7 +45,10 @@ interface Picked {
  * would not fit in a request.
  */
 async function resize(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
+  // from-image applies the EXIF rotation. Phone photos carry their orientation
+  // as a tag rather than in the pixels, and without this a portrait photo is
+  // handed to the illustrator on its side.
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale);
   const h = Math.round(bitmap.height * scale);
@@ -90,24 +93,37 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
     }
 
     const incoming = Array.from(list).slice(0, room);
-    if (incoming.some((f) => !f.type.startsWith("image/"))) {
-      setError("Photos only — pick images.");
-      return;
-    }
 
+    // Deliberately NOT gated on file.type. That field is the operating system
+    // guessing from the extension, and on Windows it is empty for HEIC/HEIF —
+    // the format every recent iPhone shoots — and sometimes for .jfif and
+    // .avif too. Checking it rejected photos the picker had just offered.
+    // Decoding is the only honest test: if the browser can read it, it is an
+    // image, whatever the OS called it.
     const next: Picked[] = [];
+    const unreadable: string[] = [];
+
     for (const file of incoming) {
       try {
-        next.push({
-          objectUrl: URL.createObjectURL(file),
-          dataUrl: await resize(file),
-          name: file.name
-        });
+        const dataUrl = await resize(file);
+        next.push({ objectUrl: URL.createObjectURL(file), dataUrl, name: file.name });
       } catch {
-        setError("One of those photos couldn't be read. Try a different one.");
+        unreadable.push(file.name);
       }
     }
-    setPhotos([...photos, ...next]);
+
+    if (unreadable.length) {
+      // HEIC is worth naming. No browser can decode it, so "try a different
+      // photo" is useless advice when every photo on their phone is HEIC.
+      const heic = unreadable.some((n) => /\.(heic|heif)$/i.test(n));
+      setError(
+        heic
+          ? "iPhone HEIC photos can't be opened in a browser. On your phone: Settings → Camera → Formats → Most Compatible, or send the photo to yourself to turn it into a JPEG."
+          : `Couldn't read ${unreadable.join(", ")}. Try a JPEG or PNG.`
+      );
+    }
+
+    if (next.length) setPhotos([...photos, ...next]);
   }
 
   function removePhoto(i: number) {
@@ -310,7 +326,12 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
           <input
             id="photos"
             type="file"
-            accept="image/*"
+            // The extensions are spelled out as well as image/*, because
+            // Windows reports no MIME type for these and would otherwise hide
+            // them from the picker entirely — leaving the user looking at a
+            // folder that appears empty. They are better selected and
+            // explained than invisible.
+            accept="image/*,.heic,.heif,.jfif,.avif"
             multiple
             disabled={photos.length >= MAX_PHOTOS}
             onChange={(e) => {
