@@ -133,6 +133,23 @@ export function gridFor(panels: number): { cols: number; rows: number } {
   return { cols: 2, rows: 4 };
 }
 
+/**
+ * Fold a partial draw into the panels already on the page.
+ *
+ * The API always answers with one slot per panel and leaves the ones it was not
+ * asked to draw empty. Taking that array as-is would wipe every panel except
+ * the one just redrawn — which is indistinguishable, to someone watching, from
+ * the redraw doing nothing at all.
+ *
+ * Pure and separate from the component because this is the step where a
+ * one-panel redraw either works or silently destroys the rest of the comic.
+ */
+export function mergePanels(previous: string[] | null, incoming: string[]): string[] {
+  if (!previous) return incoming;
+  const length = Math.max(previous.length, incoming.length);
+  return Array.from({ length }, (_, i) => incoming[i] || previous[i] || "");
+}
+
 export const photoComicSchema = z.object({
   title: z.string().trim().min(1).max(60),
   storyboard: storyboardSchema,

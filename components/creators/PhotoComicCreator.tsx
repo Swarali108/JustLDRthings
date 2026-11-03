@@ -15,7 +15,7 @@ import {
   MAX_PHOTOS,
   PHOTO_MAX_EDGE,
   MAX_DIALOGUE_CHARS,
-  APPROX_PANEL_COST_USD,
+  mergePanels,
   type Storyboard,
   type ArtStyle,
   type Freedom,
@@ -86,6 +86,15 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
    * the old style in the middle of a page in the new one.
    */
   const [drawnStyle, setDrawnStyle] = useState<ArtStyle | null>(null);
+  /**
+   * Panels that have actually been sent to the illustrator.
+   *
+   * An empty slot in `drawn` means "no picture", which covers two very
+   * different situations: one nobody has asked for yet, and one that was asked
+   * for and came back empty. Only the second is a problem, and conflating them
+   * made drawing a single test panel look like five failures.
+   */
+  const [attempted, setAttempted] = useState<number[]>([]);
 
   // `panel-N` means that one panel is being redrawn on its own, which needs to
   // be distinguishable from a full draw so only that cell shows as busy.
@@ -146,12 +155,17 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
     // The story was written about a set of photos that no longer exists.
     setStoryboard(null);
     setDrawn(null);
+    setAttempted([]);
   }
 
   async function readPhotos() {
     setError("");
     setBusy("reading");
+    // A fresh story means the old drawings belong to a story that no longer
+    // exists, so what was attempted for it no longer means anything either.
     setDrawn(null);
+    setAttempted([]);
+    setDrawnStyle(null);
     try {
       const res = await fetch("/api/ai/comic/storyboard", {
         method: "POST",
@@ -196,6 +210,7 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
    */
   async function draw(only?: number[]) {
     if (!storyboard) return;
+    const requested = only?.length ? only : storyboard.panels.map((_, i) => i);
     setError("");
     setBusy(only?.length === 1 ? `panel-${only[0]}` : "drawing");
     try {
@@ -217,16 +232,10 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
         return;
       }
 
-      // The API answers with a full-length array where panels it did not draw
-      // are "". Keeping the old image for those is what stops a one-panel
-      // redraw from blanking the other three.
-      setDrawn((prev) => {
-        const incoming: string[] = data.images ?? [];
-        if (!prev) return incoming;
-        return incoming.map((img, i) => img || prev[i] || "");
-      });
+      setDrawn((prev) => mergePanels(prev, data.images ?? []));
       setSpent((s) => s + (data.stats?.costUsd ?? 0));
       setDrawnStyle(art);
+      setAttempted((prev) => Array.from(new Set([...prev, ...requested])));
     } catch {
       setError("Couldn't reach the illustrator.");
     } finally {
@@ -546,49 +555,44 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
             </div>
 
             {/*
-              Two buttons, because the style is the thing most likely to be
-              wrong and the most expensive thing to discover late. Drawing one
-              panel first costs about a quarter of a full four-panel page, and
-              it shows the art style AND whether the faces came through — which
-              is everything you would learn from the full page.
+              ONE action at a time. Offering "draw the page" and "try one panel"
+              together asked the user to make a judgement about cost before they
+              had seen anything the illustrator can do. The first panel comes
+              first; the rest of the page is offered once there is something to
+              judge it by.
             */}
             <div className="row-actions" style={{ marginTop: 14 }}>
-              <button
-                type="button"
-                className="button button-plum"
-                onClick={() => void draw(toDraw)}
-                disabled={Boolean(busy)}
-              >
-                {busy === "drawing"
-                  ? "Drawing…"
-                  : `${
-                      !drawn
-                        ? "Draw it"
-                        : toDraw.length < all.length
-                          ? `Draw the other ${toDraw.length}`
-                          : styleChanged
-                            ? "Redraw in this style"
-                            : "Draw them all again"
-                    } · about $${(toDraw.length * APPROX_PANEL_COST_USD).toFixed(2)} ♡`}
-              </button>
-
               {!drawn ? (
                 <button
                   type="button"
-                  className="button button-quiet"
+                  className="button button-plum"
                   onClick={() => void draw([0])}
                   disabled={Boolean(busy)}
-                  title="Draw only the first panel, to check the style before paying for the rest"
                 >
-                  {busy === "panel-0"
-                    ? "Trying…"
-                    : `Try one panel first · $${APPROX_PANEL_COST_USD.toFixed(2)}`}
+                  {busy === "panel-0" ? "Drawing…" : "Try one panel first ♡"}
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="button button-plum"
+                  onClick={() => void draw(toDraw)}
+                  disabled={Boolean(busy)}
+                >
+                  {busy === "drawing"
+                    ? "Drawing…"
+                    : toDraw.length < all.length
+                      ? `Draw the other ${toDraw.length} ♡`
+                      : styleChanged
+                        ? "Redraw in this style ♡"
+                        : "Draw them all again ♡"}
+                </button>
+              )}
             </div>
 
             <small style={{ color: "var(--mauve)", display: "block", marginTop: 6 }}>
-              About 30 seconds. Editing the story above is free — only drawing costs.
+              {!drawn
+                ? "One panel first, so you can see the style before the rest is drawn. About 15 seconds."
+                : "Editing the story above is free. Any panel can be drawn again on its own."}
             </small>
 
             {busy === "drawing" ? (
@@ -649,6 +653,7 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
                   redrawing={
                     busy.startsWith("panel-") ? Number(busy.slice(6)) : null
                   }
+                  attempted={attempted}
                 />
               ) : (
                 <span className="paper-placeholder">

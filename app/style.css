@@ -1241,30 +1241,45 @@
   text-align: center;
 }
 
+/* The drawing is the comic; the words sit on a small part of it.
+   The first version filled the cell with text, which read as a caption with a
+   picture behind it rather than as a panel. Dialogue is confined to the top
+   now, the caption to a thin strip at the bottom, and the middle -- where the
+   faces are -- is left alone. */
 .cell-text {
   display: flex;
   flex-direction: column;
   inset: 0;
-  padding: 5%;
+  justify-content: space-between;
+  padding: 3.5%;
   pointer-events: none;
   position: absolute;
 }
 
-.cell-bubbles { display: flex; flex-direction: column; gap: 5px; }
+.cell-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Deliberately NOT height-capped. A ceiling with overflow: hidden keeps the
+     text small but clips whatever does not fit, and a dialogue line can run to
+     80 characters — silently losing half of what someone wrote is worse than
+     covering a little more of the drawing. Size is controlled by the type
+     scale and max-width below instead, which cannot lose anything. */
+}
 
 .bubble {
-  background: #fdfcfa;
-  border: 1.5px solid #2b2029;
-  border-radius: 12px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14);
+  background: rgba(253, 252, 250, 0.93);
+  border: 1px solid rgba(43, 32, 41, 0.75);
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   color: #2b2029;
   /* Sized off the panel, not the window, so it keeps its proportion to the
      drawing however the page is scaled. */
-  font-size: clamp(8px, 4.2cqw, 15px);
+  font-size: clamp(7px, 2.7cqw, 11px);
   font-family: Inter, system-ui, sans-serif;
-  line-height: 1.3;
-  max-width: 80%;
-  padding: 5px 9px;
+  line-height: 1.25;
+  max-width: 54%;
+  padding: 3px 7px;
   width: fit-content;
 }
 
@@ -1273,24 +1288,38 @@
 
 .bubble-narrator {
   align-self: center;
-  background: rgba(43, 32, 41, 0.9);
+  background: rgba(43, 32, 41, 0.82);
   border: 0;
-  border-radius: 3px;
+  border-radius: 2px;
   color: #f6f1ea;
   font-style: italic;
-  max-width: 92%;
+  max-width: 68%;
 }
 
+/* A thin strip along the bottom edge, the way a caption box sits in print.
+   Out of the way of the drawing entirely. */
 .cell-caption {
-  align-self: flex-start;
-  background: rgba(252, 250, 248, 0.94);
-  border: 1px solid #2b2029;
+  align-self: stretch;
+  background: rgba(252, 250, 248, 0.9);
+  border: 1px solid rgba(43, 32, 41, 0.6);
   border-radius: 2px;
   color: #2b2029;
   font-family: Inter, system-ui, sans-serif;
-  font-size: clamp(7px, 3.4cqw, 12px);
-  margin-bottom: 5px;
-  padding: 3px 7px;
+  font-size: clamp(6px, 2.4cqw, 10px);
+  line-height: 1.25;
+  padding: 2px 6px;
+  text-align: center;
+}
+
+/* A cell with nothing drawn in it yet. Quiet, not alarming. */
+.comic-cell-empty {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(43, 32, 41, 0.03) 0 8px,
+    transparent 8px 16px
+  );
+  border-style: dashed;
+  border-width: 2px;
 }
 
 @media (max-width: 560px) {
@@ -1317,7 +1346,10 @@
   border: 1px solid rgba(74, 34, 48, 0.25);
   border-radius: 999px;
   cursor: pointer;
-  opacity: 0;
+  /* Visible at rest. It was opacity: 0 until hover, which hid the only way to
+     draw a missing panel -- on a page of empty cells there appeared to be no
+     control at all. */
+  opacity: 0.78;
   transition: opacity 120ms ease, background 120ms ease;
 }
 

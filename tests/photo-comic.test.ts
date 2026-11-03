@@ -5,6 +5,7 @@ import {
   ART_STYLE_BRIEFS,
   MAX_PHOTOS,
   MAX_DIALOGUE_CHARS,
+  mergePanels,
   type Storyboard
 } from "@/lib/photo-comic";
 import { runDraw } from "@/lib/ai/photo-comic-run";
@@ -220,5 +221,37 @@ describe("runDraw", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toBe("no-image");
+  });
+});
+
+describe("mergePanels", () => {
+  const page = ["a.png", "b.png", "c.png", "d.png"];
+
+  it("keeps the panels a partial redraw did not touch", () => {
+    // What the API sends back after redrawing only panel 2.
+    const incoming = ["", "NEW.png", "", ""];
+    expect(mergePanels(page, incoming)).toEqual(["a.png", "NEW.png", "c.png", "d.png"]);
+  });
+
+  it("takes everything on a first draw", () => {
+    expect(mergePanels(null, page)).toEqual(page);
+  });
+
+  it("fills the gaps a part-finished page left behind", () => {
+    // One panel drawn as a style test, then the other three drawn after.
+    const tested = mergePanels(null, ["a.png", "", "", ""]);
+    expect(mergePanels(tested, ["", "b.png", "c.png", "d.png"])).toEqual(page);
+  });
+
+  it("does not resurrect a panel that failed on a full redraw", () => {
+    // A full redraw where panel 3 failed keeps the OLD panel 3 rather than
+    // leaving a hole — the user still has a complete comic to look at.
+    const result = mergePanels(page, ["w.png", "x.png", "", "z.png"]);
+    expect(result).toEqual(["w.png", "x.png", "c.png", "z.png"]);
+  });
+
+  it("never shortens the page", () => {
+    expect(mergePanels(page, [])).toHaveLength(4);
+    expect(mergePanels(page, ["", "", "", "", "e.png"])).toHaveLength(5);
   });
 });
