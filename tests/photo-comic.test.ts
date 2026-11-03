@@ -9,6 +9,7 @@ import {
   type Storyboard
 } from "@/lib/photo-comic";
 import { runDraw } from "@/lib/ai/photo-comic-run";
+import { comicToBlocks } from "@/components/guest/keepsake";
 
 const board: Storyboard = {
   title: "The delayed train",
@@ -253,5 +254,58 @@ describe("mergePanels", () => {
   it("never shortens the page", () => {
     expect(mergePanels(page, [])).toHaveLength(4);
     expect(mergePanels(page, ["", "", "", "", "e.png"])).toHaveLength(5);
+  });
+});
+
+describe("comicToBlocks", () => {
+  const panels = [
+    { caption: "Age four", dialogue: [{ speaker: "A" as const, text: "Look at the light!" }] },
+    { caption: undefined, dialogue: [{ speaker: "narrator" as const, text: "Years passed." }] },
+    { caption: "Now", dialogue: [{ speaker: "B" as const, text: "You made it." }] }
+  ];
+  const art = ["one.png", "two.png", "three.png"];
+
+  it("keeps EVERY drawn panel, not just the first", () => {
+    // The bug this covers: a six-panel comic saved to disk as one panel.
+    const blocks = comicToBlocks("Her Journey", panels, art, { a: "Swara", b: "Dev" });
+    expect(blocks).toHaveLength(3);
+    expect(blocks.map((b) => b.mediaDataUrl)).toEqual(art);
+  });
+
+  it("carries the words, because the drawings have none", () => {
+    const blocks = comicToBlocks("Her Journey", panels, art, { a: "Swara", b: "Dev" });
+    expect(blocks[0].caption).toContain("Age four");
+    expect(blocks[0].caption).toContain("Swara: Look at the light!");
+    expect(blocks[2].caption).toContain("Dev: You made it.");
+  });
+
+  it("leaves the narrator unattributed", () => {
+    const blocks = comicToBlocks("t", panels, art, { a: "Swara", b: "Dev" });
+    expect(blocks[1].caption).toBe("Years passed.");
+  });
+
+  it("falls back to neutral names", () => {
+    const blocks = comicToBlocks("t", panels, art);
+    expect(blocks[0].caption).toContain("You: Look at the light!");
+    expect(blocks[2].caption).toContain("Them: You made it.");
+  });
+
+  it("titles only the first block, so it is not repeated per panel", () => {
+    const blocks = comicToBlocks("Her Journey", panels, art);
+    expect(blocks[0].title).toBe("Her Journey");
+    expect(blocks[1].title).toBeUndefined();
+    expect(blocks[2].title).toBeUndefined();
+  });
+
+  it("skips panels that never drew rather than saving holes", () => {
+    const blocks = comicToBlocks("t", panels, ["one.png", "", "three.png"]);
+    expect(blocks).toHaveLength(2);
+    expect(blocks.map((b) => b.mediaDataUrl)).toEqual(["one.png", "three.png"]);
+    // The title still lands on whatever ends up first.
+    expect(blocks[0].title).toBe("t");
+  });
+
+  it("returns nothing when nothing is drawn", () => {
+    expect(comicToBlocks("t", panels, ["", "", ""])).toEqual([]);
   });
 });

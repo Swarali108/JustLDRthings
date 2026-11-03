@@ -25,7 +25,7 @@ import { DEFAULT_STYLE, styleClasses, tiltStyle, type ItemStyle } from "@/lib/st
 import { StylePanel } from "@/components/creators/StylePanel";
 import { ComicPage } from "@/components/comic/ComicPage";
 import { GuestResult } from "@/components/guest/GuestResult";
-import type { KeepsakeBlock } from "@/components/guest/keepsake";
+import { comicToBlocks, type KeepsakeBlock } from "@/components/guest/keepsake";
 
 const initial: CreateState = {};
 
@@ -291,22 +291,16 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
     }
     const title = storyboard.title || "A little comic";
 
-    // A drawn page is about a megabyte, so it cannot travel in a link. It
-    // becomes a keepsake with the image embedded, exactly like a photo.
-    setGuest({
-      title,
-      blocks: [
-        {
-          kind: "media",
-          title,
-          caption: storyboard.title,
-          mediaKind: "image",
-          // The keepsake carries the first panel; the rest are listed with it.
-          mediaDataUrl: drawn[0] || undefined,
-          style
-        }
-      ]
-    });
+    // Every drawn panel goes in, in order, each with its own words. A drawn
+    // page is about a megabyte per panel, which is why this is a download
+    // rather than a link.
+    const blocks = comicToBlocks(title, storyboard.panels, drawn, names, style);
+    if (blocks.length === 0) {
+      setError("There's nothing drawn yet to save.");
+      return;
+    }
+
+    setGuest({ title, blocks });
   }
 
   const comicPayload =
@@ -622,8 +616,27 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
               <StylePanel value={style} onChange={setStyle} />
             </div>
 
+            {/*
+              A part-drawn comic must not be finishable. Asking for six panels,
+              drawing one to check the style and then pressing finish produced a
+              one-panel comic with no warning at all — the missing five were
+              only visible as empty cells in the preview, which is not where
+              someone is looking when they press the button that ends the job.
+            */}
+            {missing.length ? (
+              <p className="form-notice" role="status">
+                {all.length - missing.length} of {all.length} panels drawn.
+                Draw the {missing.length === 1 ? "last one" : `other ${missing.length}`} before finishing,
+                or remove {missing.length === 1 ? "it" : "them"} from the story above.
+              </p>
+            ) : null}
+
             <div className="row-actions" style={{ marginTop: 16 }}>
-              <button type="submit" className="button button-plum" disabled={pending}>
+              <button
+                type="submit"
+                className="button button-plum"
+                disabled={pending || missing.length > 0 || Boolean(busy)}
+              >
                 {signedIn ? (pending ? "Saving…" : "Save this") : "Finish this ♡"}
               </button>
             </div>

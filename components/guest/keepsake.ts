@@ -579,6 +579,65 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
   }
 }
 
+/**
+ * Turn a drawn comic into keepsake blocks — ONE PER PANEL.
+ *
+ * A comic is the only thing in the app made of several images that have to stay
+ * in order, and the keepsake format carries one image per block. The first
+ * version embedded `images[0]` and nothing else, so a six-panel comic saved to
+ * disk as a single panel: the other five were simply dropped, silently, at the
+ * last step.
+ *
+ * The words travel in the caption rather than the picture. The panels are drawn
+ * deliberately wordless, so if the dialogue did not come along here the saved
+ * comic would have no story in it at all — just pictures.
+ *
+ * Panels that never drew are skipped rather than left as holes: a keepsake is
+ * the finished thing, and a gap in it is not worth preserving.
+ */
+export function comicToBlocks(
+  title: string,
+  panels: {
+    caption?: string;
+    dialogue: { speaker: "A" | "B" | "narrator"; text: string }[];
+  }[],
+  images: string[],
+  names?: { a: string; b: string },
+  style?: ItemStyle
+): KeepsakeBlock[] {
+  const who = (speaker: "A" | "B" | "narrator") =>
+    speaker === "A" ? names?.a || "You" : speaker === "B" ? names?.b || "Them" : "";
+
+  const blocks: KeepsakeBlock[] = [];
+
+  panels.forEach((panel, i) => {
+    const art = images[i];
+    if (!art) return;
+
+    const said = panel.dialogue
+      .map((line) => {
+        const name = who(line.speaker);
+        return name ? `${name}: ${line.text}` : line.text;
+      })
+      .join("  ·  ");
+
+    const caption = [panel.caption, said].filter(Boolean).join("  ·  ");
+
+    blocks.push({
+      kind: "media",
+      // Only the first panel carries the title, so it is not repeated down the
+      // page once for every panel.
+      title: blocks.length === 0 ? title : undefined,
+      caption: caption || undefined,
+      mediaKind: "image",
+      mediaDataUrl: art,
+      style
+    });
+  });
+
+  return blocks;
+}
+
 /** Filesystem-safe filename from a title. */
 export function keepsakeFilename(title: string): string {
   const base =
