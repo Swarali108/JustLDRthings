@@ -48,8 +48,25 @@ import {
 /** Above this, embedding the media as a data URI produces a file too big to be useful. */
 export const KEEPSAKE_MEDIA_LIMIT = 4 * 1024 * 1024;
 
+/** One panel's words. The drawings carry none, by design. */
+export interface ComicPanel {
+  caption?: string;
+  dialogue: { speaker: "A" | "B" | "narrator"; text: string }[];
+}
+
 export interface KeepsakeBlock {
-  kind: "paper" | "song" | "coupon" | "media" | "voice" | "bouquet" | "collage" | "doodle" | "mixtape" | "poem";
+  kind:
+    | "paper"
+    | "song"
+    | "coupon"
+    | "media"
+    | "voice"
+    | "bouquet"
+    | "collage"
+    | "doodle"
+    | "mixtape"
+    | "poem"
+    | "comic";
   title?: string;
   body?: string;
   paper?: PaperChoice;
@@ -69,6 +86,18 @@ export interface KeepsakeBlock {
   mediaKind?: "image" | "video" | "audio";
   /** Collage: one data URI per photo, already embedded. */
   collageDataUrls?: string[];
+  /**
+   * Comic: the panels and their drawings, kept together.
+   *
+   * A comic is the one thing here that is a LAYOUT rather than a single object.
+   * Saving it as a run of separate photo blocks lost that — it became six
+   * pictures to scroll past instead of a page to look at — so it renders as one
+   * block that draws its own grid.
+   */
+  comicPanels?: ComicPanel[];
+  /** One data URI per panel, in order. Empty string for one that never drew. */
+  comicImages?: string[];
+  comicNames?: { a: string; b: string };
   /** Bouquet: ordered flower ids, plus greenery, wrapping and tie. */
   stems?: string[];
   greenery?: string[];
@@ -398,6 +427,57 @@ function renderBlock(block: KeepsakeBlock): string {
 </article>`;
     }
 
+    case "comic": {
+      const panels = block.comicPanels || [];
+      const images = block.comicImages || [];
+      const names = block.comicNames;
+      const cols = panels.length <= 2 ? 2 : 2;
+
+      const who = (speaker: "A" | "B" | "narrator") =>
+        speaker === "A"
+          ? names?.a || "You"
+          : speaker === "B"
+            ? names?.b || "Them"
+            : "";
+
+      const cells = panels
+        .map((panel, i) => {
+          const art = images[i];
+          if (!art) return "";
+
+          const bubbles = panel.dialogue
+            .map((line) => {
+              const cls =
+                line.speaker === "narrator"
+                  ? "cbub cbub-n"
+                  : line.speaker === "A"
+                    ? "cbub cbub-a"
+                    : "cbub cbub-b";
+              const title = who(line.speaker);
+              return `<span class="${cls}"${title ? ` title="${esc(title)}"` : ""}>${esc(line.text)}</span>`;
+            })
+            .join("");
+
+          return `<div class="ccell">
+      <img src="${esc(art)}" alt="${esc(`Panel ${i + 1}`)}">
+      <div class="ctext">
+        <div class="cbubs">${bubbles}</div>
+        ${panel.caption ? `<span class="ccap">${esc(panel.caption)}</span>` : ""}
+      </div>
+    </div>`;
+        })
+        .filter(Boolean)
+        .join("\n    ");
+
+      return `<article class="block comic" style="${blockAttrs(style)}">
+  ${renderStickers(style)}
+  ${block.title ? `<h3 class="ctitle">${esc(block.title)}</h3>` : ""}
+  <div class="cgrid" style="grid-template-columns: repeat(${cols}, 1fr);">
+    ${cells || `<p class="missing">None of the panels drew.</p>`}
+  </div>
+</article>`;
+    }
+
     case "voice":
       return `<article class="block voice" style="${blockAttrs(style)}">
   ${renderStickers(style)}
@@ -512,6 +592,53 @@ export function buildKeepsakeHtml(title: string, blocks: KeepsakeBlock[]): strin
   .frame img, .frame video { display: block; width: 100%; height: auto; }
   .caption, .transcript { margin: 12px 0 0; font-style: italic; opacity: .8; }
   .missing { color: #8c657c; font-style: italic; margin: 0; padding: 20px; text-align: center; }
+
+  /* The comic is a page, not a stack of photos. Saved as separate blocks it
+     became six pictures to scroll past, which is not what a comic is. These
+     mirror the grid in the app so the file looks like what was previewed.
+     Plain px sizes rather than container units: this file has to render the
+     same opened from a Downloads folder years from now, with no build step
+     and no guarantee about the browser. */
+  .comic .ctitle {
+    text-align: center; margin: 0 0 14px; font-size: 1.15rem;
+  }
+  .cgrid { display: grid; gap: 10px; }
+  .ccell {
+    position: relative; overflow: hidden; aspect-ratio: 16 / 9;
+    border: 2px solid #2b2029; border-radius: 4px; background: #e7eef7;
+  }
+  .ccell img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .ctext {
+    position: absolute; inset: 0; padding: 3.5%;
+    display: flex; flex-direction: column; justify-content: space-between;
+    pointer-events: none;
+  }
+  .cbubs { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+  .cbub {
+    width: fit-content; max-width: 54%;
+    background: rgba(253, 252, 250, .93); border: 1px solid rgba(43, 32, 41, .75);
+    border-radius: 9px; padding: 3px 7px;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; line-height: 1.25;
+    color: #2b2029; font-style: normal;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+  }
+  .cbub-b { align-self: flex-end; }
+  .cbub-n {
+    align-self: center; max-width: 68%;
+    background: rgba(43, 32, 41, .82); color: #f6f1ea; border: 0;
+    border-radius: 2px; font-style: italic;
+  }
+  .ccap {
+    align-self: stretch; text-align: center;
+    background: rgba(252, 250, 248, .9); border: 1px solid rgba(43, 32, 41, .6);
+    border-radius: 2px; padding: 2px 6px;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; line-height: 1.25;
+    color: #2b2029; font-style: normal;
+  }
+  @media (max-width: 700px) {
+    .cgrid { grid-template-columns: 1fr !important; }
+    .cbub { font-size: 10px; }
+  }
   audio { width: 100%; margin-top: 12px; }
   footer { text-align: center; margin-top: 40px; color: ${pal.accent}; font-size: .85rem; opacity: .8; }
   @media print { body { background: #fff; } .block { box-shadow: none; border: 1px solid #e7eef7; } }
@@ -580,62 +707,45 @@ export function guestItemToBlock(item: GuestItem): KeepsakeBlock {
 }
 
 /**
- * Turn a drawn comic into keepsake blocks — ONE PER PANEL.
+ * Turn a drawn comic into ONE keepsake block holding the whole page.
  *
- * A comic is the only thing in the app made of several images that have to stay
- * in order, and the keepsake format carries one image per block. The first
- * version embedded `images[0]` and nothing else, so a six-panel comic saved to
- * disk as a single panel: the other five were simply dropped, silently, at the
- * last step.
+ * This has now been wrong twice, in opposite directions, and both were only
+ * visible in the downloaded file:
  *
- * The words travel in the caption rather than the picture. The panels are drawn
- * deliberately wordless, so if the dialogue did not come along here the saved
- * comic would have no story in it at all — just pictures.
+ *   first   one block carrying images[0] -- five panels of six silently lost
+ *   second  one block per panel -- every panel kept, but the comic became a
+ *           column of separate photos to scroll through, which is not a comic
  *
- * Panels that never drew are skipped rather than left as holes: a keepsake is
- * the finished thing, and a gap in it is not worth preserving.
+ * A comic is a LAYOUT. The panels mean something by their arrangement, so the
+ * saved file has to carry the arrangement too, not just the pictures. One block
+ * that draws its own grid is the only version that matches what was previewed.
+ *
+ * The words travel with it because the drawings are deliberately wordless --
+ * without them the saved comic would have no story in it, only pictures.
+ *
+ * Panels that never drew are dropped rather than saved as holes.
  */
-export function comicToBlocks(
+export function comicToBlock(
   title: string,
-  panels: {
-    caption?: string;
-    dialogue: { speaker: "A" | "B" | "narrator"; text: string }[];
-  }[],
+  panels: ComicPanel[],
   images: string[],
   names?: { a: string; b: string },
   style?: ItemStyle
-): KeepsakeBlock[] {
-  const who = (speaker: "A" | "B" | "narrator") =>
-    speaker === "A" ? names?.a || "You" : speaker === "B" ? names?.b || "Them" : "";
+): KeepsakeBlock | null {
+  const keep = panels
+    .map((panel, i) => ({ panel, art: images[i] || "" }))
+    .filter((p) => p.art);
 
-  const blocks: KeepsakeBlock[] = [];
+  if (keep.length === 0) return null;
 
-  panels.forEach((panel, i) => {
-    const art = images[i];
-    if (!art) return;
-
-    const said = panel.dialogue
-      .map((line) => {
-        const name = who(line.speaker);
-        return name ? `${name}: ${line.text}` : line.text;
-      })
-      .join("  ·  ");
-
-    const caption = [panel.caption, said].filter(Boolean).join("  ·  ");
-
-    blocks.push({
-      kind: "media",
-      // Only the first panel carries the title, so it is not repeated down the
-      // page once for every panel.
-      title: blocks.length === 0 ? title : undefined,
-      caption: caption || undefined,
-      mediaKind: "image",
-      mediaDataUrl: art,
-      style
-    });
-  });
-
-  return blocks;
+  return {
+    kind: "comic",
+    title,
+    comicPanels: keep.map((k) => k.panel),
+    comicImages: keep.map((k) => k.art),
+    comicNames: names,
+    style
+  };
 }
 
 /** Filesystem-safe filename from a title. */

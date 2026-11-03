@@ -9,7 +9,7 @@ import {
   type Storyboard
 } from "@/lib/photo-comic";
 import { runDraw } from "@/lib/ai/photo-comic-run";
-import { comicToBlocks } from "@/components/guest/keepsake";
+import { comicToBlock, buildKeepsakeHtml } from "@/components/guest/keepsake";
 
 const board: Storyboard = {
   title: "The delayed train",
@@ -257,7 +257,7 @@ describe("mergePanels", () => {
   });
 });
 
-describe("comicToBlocks", () => {
+describe("comicToBlock", () => {
   const panels = [
     { caption: "Age four", dialogue: [{ speaker: "A" as const, text: "Look at the light!" }] },
     { caption: undefined, dialogue: [{ speaker: "narrator" as const, text: "Years passed." }] },
@@ -265,47 +265,54 @@ describe("comicToBlocks", () => {
   ];
   const art = ["one.png", "two.png", "three.png"];
 
-  it("keeps EVERY drawn panel, not just the first", () => {
-    // The bug this covers: a six-panel comic saved to disk as one panel.
-    const blocks = comicToBlocks("Her Journey", panels, art, { a: "Swara", b: "Dev" });
-    expect(blocks).toHaveLength(3);
-    expect(blocks.map((b) => b.mediaDataUrl)).toEqual(art);
+  it("keeps EVERY drawn panel in ONE block", () => {
+    // Two bugs in one test. The first version saved images[0] and dropped the
+    // rest; the second kept them all but as separate blocks, which turned the
+    // page into a column of photos to scroll through.
+    const block = comicToBlock("Her Journey", panels, art, { a: "Swara", b: "Dev" });
+    expect(block?.kind).toBe("comic");
+    expect(block?.comicImages).toEqual(art);
+    expect(block?.comicPanels).toHaveLength(3);
   });
 
   it("carries the words, because the drawings have none", () => {
-    const blocks = comicToBlocks("Her Journey", panels, art, { a: "Swara", b: "Dev" });
-    expect(blocks[0].caption).toContain("Age four");
-    expect(blocks[0].caption).toContain("Swara: Look at the light!");
-    expect(blocks[2].caption).toContain("Dev: You made it.");
+    const block = comicToBlock("t", panels, art);
+    expect(block?.comicPanels?.[0].caption).toBe("Age four");
+    expect(block?.comicPanels?.[0].dialogue[0].text).toBe("Look at the light!");
   });
 
-  it("leaves the narrator unattributed", () => {
-    const blocks = comicToBlocks("t", panels, art, { a: "Swara", b: "Dev" });
-    expect(blocks[1].caption).toBe("Years passed.");
-  });
-
-  it("falls back to neutral names", () => {
-    const blocks = comicToBlocks("t", panels, art);
-    expect(blocks[0].caption).toContain("You: Look at the light!");
-    expect(blocks[2].caption).toContain("Them: You made it.");
-  });
-
-  it("titles only the first block, so it is not repeated per panel", () => {
-    const blocks = comicToBlocks("Her Journey", panels, art);
-    expect(blocks[0].title).toBe("Her Journey");
-    expect(blocks[1].title).toBeUndefined();
-    expect(blocks[2].title).toBeUndefined();
-  });
-
-  it("skips panels that never drew rather than saving holes", () => {
-    const blocks = comicToBlocks("t", panels, ["one.png", "", "three.png"]);
-    expect(blocks).toHaveLength(2);
-    expect(blocks.map((b) => b.mediaDataUrl)).toEqual(["one.png", "three.png"]);
-    // The title still lands on whatever ends up first.
-    expect(blocks[0].title).toBe("t");
+  it("drops panels that never drew, and keeps the pairing straight", () => {
+    // The panel text must follow its own picture — an off-by-one here would
+    // caption each drawing with someone else's line.
+    const block = comicToBlock("t", panels, ["one.png", "", "three.png"]);
+    expect(block?.comicImages).toEqual(["one.png", "three.png"]);
+    expect(block?.comicPanels?.map((p) => p.caption)).toEqual(["Age four", "Now"]);
   });
 
   it("returns nothing when nothing is drawn", () => {
-    expect(comicToBlocks("t", panels, ["", "", ""])).toEqual([]);
+    expect(comicToBlock("t", panels, ["", "", ""])).toBeNull();
+  });
+
+  it("renders as a grid in the saved file, not a run of photos", () => {
+    const block = comicToBlock("Her Journey", panels, art, { a: "Swara", b: "Dev" });
+    const html = buildKeepsakeHtml("Her Journey", [block!]);
+
+    expect(html).toContain("cgrid");
+    expect(html).toContain("grid-template-columns");
+    // Every panel present, and the dialogue with it.
+    for (const src of art) expect(html).toContain(src);
+    expect(html).toContain("Look at the light!");
+    expect(html).toContain("Years passed.");
+    expect(html).toContain("Age four");
+  });
+
+  it("escapes panel text, which came from a model", () => {
+    const nasty = [
+      { caption: "<script>bad()</script>", dialogue: [{ speaker: "A" as const, text: "a \" b" }] }
+    ];
+    const block = comicToBlock("t", nasty, ["x.png"]);
+    const html = buildKeepsakeHtml("t", [block!]);
+    expect(html).not.toContain("<script>bad()</script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });

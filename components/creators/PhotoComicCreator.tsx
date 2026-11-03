@@ -25,7 +25,7 @@ import { DEFAULT_STYLE, styleClasses, tiltStyle, type ItemStyle } from "@/lib/st
 import { StylePanel } from "@/components/creators/StylePanel";
 import { ComicPage } from "@/components/comic/ComicPage";
 import { GuestResult } from "@/components/guest/GuestResult";
-import { comicToBlocks, type KeepsakeBlock } from "@/components/guest/keepsake";
+import { comicToBlock, type KeepsakeBlock } from "@/components/guest/keepsake";
 
 const initial: CreateState = {};
 
@@ -294,13 +294,13 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
     // Every drawn panel goes in, in order, each with its own words. A drawn
     // page is about a megabyte per panel, which is why this is a download
     // rather than a link.
-    const blocks = comicToBlocks(title, storyboard.panels, drawn, names, style);
-    if (blocks.length === 0) {
+    const block = comicToBlock(title, storyboard.panels, drawn, names, style);
+    if (!block) {
       setError("There's nothing drawn yet to save.");
       return;
     }
 
-    setGuest({ title, blocks });
+    setGuest({ title, blocks: [block] });
   }
 
   const comicPayload =
