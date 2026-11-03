@@ -650,7 +650,7 @@ export function PhotoComicCreator({ signedIn }: { signedIn: boolean }) {
           payload={null}
           blocks={guest.blocks}
           onEdit={() => setGuest(null)}
-          unshareableReason="A drawn comic is about a megabyte, too big for a link. Save it to your laptop below, or sign in to share it."
+          unshareableReason="A drawn comic is about a megabyte, too big for a link. Save it to your laptop below to keep it."
         />
       ) : (
         <div className="studio-panel">

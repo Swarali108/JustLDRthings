@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { buildGuestLink, LINK_WARN_CHARS, type GuestPayload } from "@/lib/guest-share";
 import {
   buildKeepsakeHtml,
@@ -98,7 +97,7 @@ export function GuestResult({
       ) : (
         <p className="form-notice" style={{ marginTop: 18 }}>
           {unshareableReason ||
-            "This one's too big to fit in a link — download it below, or sign in to share it properly."}
+            "This one's too big to fit in a link — download it below to keep it."}
         </p>
       )}
 
@@ -137,12 +136,7 @@ export function GuestResult({
       ) : null}
 
       <p style={{ marginTop: 18, color: "var(--mauve)", lineHeight: 1.6 }}>
-        Want it kept for you, gathered onto one page, and shareable with a short
-        link?{" "}
-        <Link href="/signup" className="inline-link">
-          Make an account
-        </Link>{" "}
-        — it starts empty, so save this one first.
+        Take it now — once this page closes it&apos;s gone. ♡
       </p>
     </div>
   );

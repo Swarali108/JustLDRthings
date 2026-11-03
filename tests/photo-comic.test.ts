@@ -10,6 +10,7 @@ import {
 } from "@/lib/photo-comic";
 import { runDraw } from "@/lib/ai/photo-comic-run";
 import { comicToBlock, buildKeepsakeHtml } from "@/components/guest/keepsake";
+import { VISIBLE_CREATIONS, CREATION_BY_TYPE } from "@/lib/content-types";
 
 const board: Storyboard = {
   title: "The delayed train",
@@ -314,5 +315,30 @@ describe("comicToBlock", () => {
     const html = buildKeepsakeHtml("t", [block!]);
     expect(html).not.toContain("<script>bad()</script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("the creation menu", () => {
+  it("offers the types in the intended order", () => {
+    // The order is a product decision, not an accident of build order, so it
+    // is pinned here — appending a new type to the array would fail this.
+    expect(VISIBLE_CREATIONS.map((c) => c.type)).toEqual([
+      "letter",
+      "poem",
+      "mixtape",
+      "song",
+      "comic",
+      "coupon",
+      "media",
+      "voice",
+      "note",
+      "bouquet"
+    ]);
+  });
+
+  it("still resolves the hidden types, so saved items keep rendering", () => {
+    expect(CREATION_BY_TYPE.doodle.label).toBe("Doodle");
+    expect(CREATION_BY_TYPE.collage.label).toBe("Collage");
+    expect(VISIBLE_CREATIONS.some((c) => c.type === "doodle")).toBe(false);
   });
 });

@@ -90,7 +90,7 @@ export function CollageCreator({ signedIn }: { signedIn: boolean }) {
         setError(
           `Those photos are too large to tuck into a file (over ${Math.round(
             KEEPSAKE_MEDIA_LIMIT / (1024 * 1024)
-          )} MB each). Sign in to share them properly.`
+          )} MB each).`
         );
         return;
       }
@@ -113,8 +113,11 @@ export function CollageCreator({ signedIn }: { signedIn: boolean }) {
     setBusy(true);
     const uid = await getUserId();
     if (!uid) {
+      // Only reachable if a session expired mid-upload. Sending them to a
+      // sign-in page would be a dead end now that there isn't one offered, so
+      // say what happened and leave the collage where it is.
       setBusy(false);
-      router.push("/login");
+      setError("That session ended. Reload the page and save it to your laptop instead.");
       return;
     }
 
@@ -225,7 +228,7 @@ export function CollageCreator({ signedIn }: { signedIn: boolean }) {
           payload={null}
           blocks={guest.blocks}
           onEdit={() => setGuest(null)}
-          unshareableReason="Photos are too big for a link. Save the collage to your laptop below, or sign in to send one."
+          unshareableReason="Photos are too big for a link. Save the collage to your laptop below to keep it."
         />
       ) : (
         <div className="studio-panel">

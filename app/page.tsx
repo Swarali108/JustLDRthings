@@ -15,11 +15,8 @@ export default function LandingPage() {
           <a href="#private">Privacy</a>
         </div>
         <div className="nav-actions">
-          <Link href="/login" className="button button-light">
-            Log in
-          </Link>
-          <Link href="/signup" className="button button-plum">
-            Sign up
+          <Link href="/create" className="button button-plum">
+            Start making ✿
           </Link>
         </div>
       </nav>
@@ -135,7 +132,7 @@ export default function LandingPage() {
           public feed, no followers — just the little things.
         </p>
         <div className="hero-actions" style={{ marginTop: 20 }}>
-          <Link href="/signup" className="button button-plum">
+          <Link href="/create" className="button button-plum">
             Create something ✿
           </Link>
         </div>

@@ -84,8 +84,11 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
     setBusy(true);
     const uid = await getUserId();
     if (!uid) {
+      // Only reachable if a session expired mid-upload. Sending them to a
+      // sign-in page would be a dead end now that there isn't one offered, so
+      // say what happened and leave the file where it is.
       setBusy(false);
-      router.push("/login");
+      setError("That session ended. Reload the page and save it to your laptop instead.");
       return;
     }
 
@@ -151,8 +154,8 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
             Photos and videos can&apos;t travel inside a link, so this one saves to
             your laptop instead.{" "}
             {tooBigToEmbed
-              ? "This file is also too big to tuck into the keepsake — sign in to share it properly."
-              : "Sign in if you'd rather send a link."}
+              ? "This file is also too big to tuck into the keepsake."
+              : null}
           </p>
         ) : null}
 
@@ -175,7 +178,7 @@ export function MediaCreator({ signedIn }: { signedIn: boolean }) {
           payload={null}
           blocks={guest.blocks}
           onEdit={() => setGuest(null)}
-          unshareableReason="Photos and videos are too big for a link. Save it to your laptop below, or sign in to send one."
+          unshareableReason="Photos and videos are too big for a link. Save it to your laptop below to keep it."
         />
       ) : (
         <div className="studio-panel">

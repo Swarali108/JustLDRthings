@@ -2,9 +2,12 @@ import Link from "next/link";
 import { signout } from "@/app/(auth)/actions";
 
 /**
- * Header for app pages. Creators are reachable without an account, so this has
- * to render for a guest too — and for a guest it offers the way in rather than
- * the way out.
+ * Header for app pages.
+ *
+ * Everything is usable without an account, so a guest is offered no way to make
+ * one — there is nothing here that requires it. The signed-in branch stays for
+ * anyone who already has a session: it is the only way back out to guest, and
+ * the only way to reach a scrapbook made earlier.
  */
 export function AppHeader({
   name,
@@ -32,14 +35,9 @@ export function AppHeader({
             </form>
           </>
         ) : (
-          <>
-            <Link href="/login" className="button button-light">
-              Log in
-            </Link>
-            <Link href="/signup" className="button button-plum">
-              Sign up
-            </Link>
-          </>
+          <Link href="/create" className="button button-plum">
+            Make something ✿
+          </Link>
         )}
       </div>
     </header>

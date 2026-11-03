@@ -138,9 +138,9 @@ export function CouponCreator({ signedIn }: { signedIn: boolean }) {
 
         {!signedIn ? (
           <p className="form-notice">
-            A coupon shared without an account is a keepsake — lovely to receive,
-            but there&apos;s no &ldquo;redeemed&rdquo; button to press, since
-            there&apos;s nowhere to record it. Sign in if you want that.
+            A coupon made this way is a keepsake — lovely to receive, but
+            there&apos;s no &ldquo;redeemed&rdquo; button to press, since
+            there&apos;s nowhere to record it.
           </p>
         ) : null}
 

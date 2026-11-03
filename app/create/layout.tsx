@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isSignedIn } from "@/lib/auth";
 import { AppHeader } from "@/components/app/AppHeader";
@@ -44,12 +43,8 @@ export default async function CreateLayout({
 
       {!signedIn ? (
         <p className="banner">
-          You&apos;re making this without an account — nothing is saved. When
-          you&apos;re done you can copy a private link or save it to your laptop.{" "}
-          <Link href="/signup" className="inline-link">
-            Make an account
-          </Link>{" "}
-          to keep your things instead. ♡
+          Nothing is saved while you make this. When you&apos;re done you can
+          copy a private link or save it to your laptop. ♡
         </p>
       ) : null}
 
